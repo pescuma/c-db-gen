@@ -1,0 +1,156 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUp($var)#end
+#set( $fileDefine = "__${utils.toDefine($struct)}_H__" )
+#ifndef $fileDefine
+# define $fileDefine
+
+\#include <PalmOS.h>
+\#include "helpers/DB.h"
+
+
+#set( $id = 1 )
+#foreach( $field in $fields )
+#foreach( $flag in $field.flags )
+#define ${utils.toDefine($struct)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)} $id
+#set( $id = 2 * $id )
+#end
+#end
+#if( $id > 1 ) 
+
+
+#end
+struct $struct
+{
+#foreach( $field in $fields )
+#if ( $field.list )
+	$field.typeName $field.name[1];
+#else
+	$field.typeName $field.name#if( $field.array > 0)[$field.array]#end;
+#end
+#end
+};
+
+
+class ${struct}Record
+{
+private:
+	DBRecord *rec;
+	$struct *data;
+	
+	void read()
+	{
+		if (rec->lockLevel() != 0)
+			return;
+		
+		data = ($struct *) rec->viewPtr();
+	}
+	
+	void write()
+	{
+		if (rec->lockLevel() == 4)
+			return;
+		
+		if (rec->lockLevel() == 2)
+			rec->release();
+		
+		data = ($struct *) rec->lockPtr();
+	}
+	
+public:
+	${struct}Record(DBRecord *rec)
+	{
+		this->rec = rec;
+		data = NULL;
+	}
+	
+	~${struct}Record()
+	{
+		delete rec;
+	}
+	
+	
+#foreach( $field in $fields )
+	$field.typeName#if( $field.array > 0 || $field.list ) *#end $utils.getGetterName($field)()
+	{
+		read();
+		return data->$field.name;
+	}
+#if( $field.list )
+	UInt16 get#fu($field.name)Length()
+	{
+		return (MemHandleSize(rec->view()) - sizeof($struct)) / sizeof($field.typeName) + 1;
+	}
+#else
+	void #setter($field)($field.typeName#if( $field.array > 0 ) *#end $field.name)
+	{
+		write();
+#if( $field.array == 0 )
+		DmWrite(data, (UInt32) &((($struct *) NULL)->$field.name), &$field.name, sizeof($field.typeName));
+#elseif( $field.type.name() == "Char" )
+		Char tmp[$field.array];
+		StrNCopy(tmp, $field.name, $field.array);
+#set( $last = $field.array - 1 )
+		tmp[$last] = chrNull;
+		
+		DmWrite(data, (UInt32) &((($struct *) NULL)->$field.name), $field.name, $field.array * sizeof($field.typeName));
+#end
+	}
+#foreach( $flag in $field.flags )
+#set( $define = "${utils.toDefine($struct)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)}" )
+#set( $var = $utils.toVariable($flag) )
+	Boolean is#fu($var)()
+	{
+		return ($utils.getGetterName($field)() & $define) == $define;
+	}
+	void set#fu($var)(Boolean $var)
+	{
+		if ($var)
+			#setter($field)(#getter($field)() | $define);
+		else
+			#setter($field)(#getter($field)() & ~$define);
+	}
+#end
+#end
+
+#end
+	
+	const $struct * const getPtr()
+	{
+		read();
+		return data;
+	}
+	
+	Boolean isSecret()
+	{
+		return rec->isSecret();
+	}
+	void setSecret(Boolean secret)
+	{
+		rec->setSecret(secret);
+	}
+	
+	UInt32 getUniqueID()
+	{
+		return rec->getUniqueID();
+	}
+	
+	UInt16 getCategory()
+	{
+		return rec->getCategory();
+	}
+	
+	Boolean isDeleted()
+	{
+		return rec->isDeleted();
+	}
+	
+	void remove(Boolean archive = false, Boolean keepInDb = false)
+	{
+		rec->remove(archive, keepInDb);
+	}
+	
+};
+
+
+#endif // $fileDefine
