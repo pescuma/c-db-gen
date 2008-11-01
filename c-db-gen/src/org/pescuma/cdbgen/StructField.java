@@ -46,6 +46,11 @@ public class StructField
 		return list;
 	}
 	
+	public boolean isPrimitive()
+	{
+		return typeName == null;
+	}
+	
 	public String getName()
 	{
 		return name;

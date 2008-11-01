@@ -1,0 +1,82 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUp($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#set( $fileDefine = "__${utils.toDefine($struct.name)}_H__" )
+#ifndef $fileDefine
+# define $fileDefine
+
+\#include <windows.h>
+\#include <tchar.h>
+\#include <vector>
+\#include "SQLite.h"
+#if( $utils.hasList($struct) )
+
+#foreach( $field in $struct.fields )
+#if ( $field.list and not $field.primitive )
+\#include "${field.typeName}.h"
+#end
+#end
+#end
+#if( $utils.hasFlags($struct) )
+
+
+#set( $id = 1 )
+#foreach( $field in $struct.fields )
+#foreach( $flag in $field.flags )
+#define ${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)} $id
+#set( $id = 2 * $id )
+#end
+#end
+#end
+
+
+
+class $struct.name
+{
+private:
+	sqlite::Database *db;
+#if( $utils.hasList($struct) )
+
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	#fieldDecl($field)List;
+	bool ${field.name}Initialized;
+#end
+#end
+#end
+	
+public:
+	
+	sqlite3_int64 id;
+#foreach( $field in $struct.fields )
+#if ( not $field.list )
+	#fieldDecl($field);
+#end
+#end
+
+	${struct.name}(sqlite::Database *db, sqlite::Statement *stmt);
+	${struct.name}(sqlite::Database *db = NULL);
+	~${struct.name}();
+#if( $utils.hasList($struct) )
+
+#foreach( $field in $struct.fields )
+#if ( $field.list )
+	std::vector<${field.typeName}> &${field.name}();
+#end
+#end
+#end
+	
+	void store();
+	
+	static void createTable(sqlite::Database *db);
+	
+	static $struct.name query(sqlite::Database *db, sqlite3_int64 id);
+	static std::vector<$struct.name> queryAll(sqlite::Database *db);
+	
+	static void store(sqlite::Database *db, ${struct.name} *obj);
+	
+};
+
+
+#endif // $fileDefine

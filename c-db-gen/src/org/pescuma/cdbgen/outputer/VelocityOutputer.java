@@ -9,6 +9,7 @@ import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
 import org.pescuma.cdbgen.Struct;
+import org.pescuma.cdbgen.StructField;
 import org.pescuma.cdbgen.Utils;
 
 public abstract class VelocityOutputer implements Outputer
@@ -17,49 +18,70 @@ public abstract class VelocityOutputer implements Outputer
 	{
 		validate(struct);
 		
-		try
+		String[] templateNames = getTemplateNames();
+		File[] files = getFilenames(struct, path);
+		
+		if (templateNames.length != files.length)
+			throw new IllegalStateException();
+		
+		for (int i = 0; i < files.length; i++)
 		{
-			VelocityContext context = new VelocityContext();
-			addVariables(context, struct);
-			
-			Template template = Velocity.getTemplate(getTemplateName());
-			
-			File file = getFilename(struct, path);
-			path.mkdirs();
-			
-			BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), getEncoding()));
 			try
 			{
-				template.merge(context, out);
+				VelocityContext context = new VelocityContext();
+				addVariables(context, struct);
+				
+				Template template = Velocity.getTemplate(templateNames[i]);
+				
+				File file = files[i];
+				file.getParentFile().mkdirs();
+				
+				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), getEncoding()));
+				try
+				{
+					template.merge(context, out);
+				}
+				finally
+				{
+					out.close();
+				}
 			}
-			finally
+			catch (Exception e)
 			{
-				out.close();
+				throw new OutputerException(e);
 			}
-		}
-		catch (Exception e)
-		{
-			throw new OutputerException(e);
 		}
 	}
 	
 	protected void validate(Struct struct)
 	{
+		for (String invName : getInvalidFieldNames())
+		{
+			for (StructField field : struct.fields)
+			{
+				if (invName.equalsIgnoreCase(field.name))
+					throw new OutputerValidationException(struct, field, field.name + " is a reserved field name");
+			}
+		}
 	}
 	
-	protected abstract String getTemplateName();
+	protected String[] getInvalidFieldNames()
+	{
+		return new String[0];
+	}
 	
-	protected abstract File getFilename(Struct struct, File path);
+	protected abstract String[] getTemplateNames();
+	
+	protected abstract File[] getFilenames(Struct struct, File path);
 	
 	protected String getEncoding()
 	{
 		return "UTF8";
 	}
 	
-	private void addVariables(VelocityContext context, Struct struct)
+	protected void addVariables(VelocityContext context, Struct struct)
 	{
-		context.put("struct", struct.name);
-		context.put("fields", struct.fields);
+		context.put("struct", struct);
 		context.put("utils", new Utils());
 	}
 }

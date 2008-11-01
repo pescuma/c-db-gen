@@ -1,6 +1,7 @@
 package org.pescuma.cdbgen;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,12 +20,12 @@ public class RecParser
 	private static final Pattern listField = Pattern.compile("^\\s*List<(" + var + ")>\\s+(" + var + ")\\s*;\\s*$");
 	private static final Pattern endStruct = Pattern.compile("^\\s*\\}\\s*;?\\s*$");
 	
-	public List<Struct> parse(String filename) throws IOException
+	public List<Struct> parse(File file) throws IOException
 	{
 		List<Struct> structs = new ArrayList<Struct>();
 		Struct cur = null;
 		
-		BufferedReader in = new BufferedReader(new FileReader(filename));
+		BufferedReader in = new BufferedReader(new FileReader(file));
 		String line;
 		while ((line = in.readLine()) != null)
 		{

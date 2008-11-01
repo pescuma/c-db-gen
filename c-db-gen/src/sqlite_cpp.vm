@@ -1,0 +1,230 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUp($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+\#include "${struct.name}.h"
+
+
+#define MAX_REGS(_X_) ( sizeof(_X_) / sizeof(_X_[0]) )
+
+
+
+${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)
+{
+	this->db = db;
+
+	stmt->getColumn(0, &id);
+#set( $i = 0 )
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( $field.typeName == 'Char' )
+	stmt->getColumn($i, &$field.name, MAX_REGS($field.name));
+#elseif( $field.typeName == 'Boolean' )
+	$field.name = (stmt->getColumnAsInt($i) != 0);
+#else
+	stmt->getColumn($i, &$field.name);
+#end
+#set( $i = $i + 1 )
+#end
+#end
+#if( $utils.hasList($struct) )
+
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	${field.name}Initialized = false;
+#end
+#end
+#end
+}
+
+
+${struct.name}::${struct.name}(sqlite::Database *db)
+{
+	this->db = db;
+	id = -1;
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	${field.name}Initialized = true;
+#elseif( $field.array > 0 )
+	memset(${field.name}, 0, ${field.array} * sizeof(${field.typeName})); 
+#elseif( $field.typeName == 'Boolean' )
+	$field.name = false;
+#else
+	$field.name = 0;
+#end
+#end
+}
+
+
+${struct.name}::~${struct.name}()
+{
+}
+
+
+#foreach( $field in $struct.fields )
+#if ( $field.list )
+std::vector<${field.typeName}> &${field.name}()
+{
+	if (!${field.name}Initialized)
+	{
+		sqlite::Statement stmt = db->prepare(
+			"SELECT ${field.typeName}.* "
+			"FROM ${struct.name} "
+				"JOIN ${struct.name}_${field.typeName} ON (${struct.name}.id == ${struct.name}_${field.typeName}.${struct.name}) "
+				"JOIN ${field.typeName} ON (${struct.name}_${field.typeName}.${field.typeName} == ${field.typeName}.id) "
+			"WHERE ${struct.name}.id = ? "
+			"ORDER BY ${field.typeName}.id"
+		);
+
+		stmt.bind(1, id);
+
+		while(stmt.step())
+			sellsList.push_back(${field.typeName}(db, &stmt));
+
+		${field.name}Initialized = true;
+	}
+
+	return ${field.name}List;
+}
+
+
+#end
+#end
+void ${struct.name}::store()
+{
+	store(db, this);
+}
+
+
+
+void ${struct.name}::createTable(sqlite::Database *db)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+
+	db->execute(
+		"CREATE TABLE IF NOT EXISTS ${struct.name} ("
+			"id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( $field.typeName == 'Char' )
+, "
+			"$field.name VARCHAR#else
+, "
+			"$field.name INTEGER#end
+#end
+#end
+"
+		")"
+	);
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	
+	db->execute(
+		"CREATE TABLE IF NOT EXISTS ${struct.name}_${field.typeName} ("
+			"${struct.name} INTEGER, "
+			"${field.typeName} INTEGER"
+		")"
+	);
+#end
+#end
+}
+
+
+${struct.name} ${struct.name}::query(sqlite::Database *db, int id)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+
+	sqlite::Statement stmt = db->prepare("SELECT * FROM ${struct.name} WHERE id = ?");
+
+	stmt.bind(1, id);
+
+	if (!stmt.step())
+		throw sqlite::DatabaseException(SQLITE_NOTFOUND, _T("${struct.name} not found"));
+
+	return ${struct.name}(db, &stmt);
+}	
+
+
+std::vector<$struct.name> queryAll(sqlite::Database *db)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+
+	std::vector<$struct.name> ret;
+
+	sqlite::Statement stmt = db->prepare("SELECT * FROM $struct.name ORDER BY id");
+	while (stmt.step())
+		ret.push_back(${struct.name}(db, &stmt));
+
+	return ret;
+}
+
+
+void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+
+	bool update = (obj->id >= 0);
+	sqlite3_int64 id;
+	
+	sqlite::Transaction trans(db);
+
+	{
+		sqlite::Statement stmt = db->prepare("INSERT INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)");
+
+		if (update)
+			stmt.bind(1, obj->id);
+#set( $i = 2 )
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( $field.typeName == 'Boolean' )
+		stmt.bind($i, obj->$field.name ? 1 : 0);
+#else
+		stmt.bind($i, obj->$field.name);
+#end
+#set( $i = $i + 1 )
+#end
+#end
+
+		stmt.execute();
+
+		id = db->getLastInsertRowID();
+	}	
+#foreach( $field in $struct.fields )
+#if( $field.list )
+
+	if (obj->${field.name}Initialized) 
+	{
+		{
+			sqlite::Statement stmt = db->prepare("DELETE FROM ${struct.name}_${field.typeName} WHERE ${struct.name} == ?");
+			stmt.bind(1, obj->id);
+			stmt.execute();
+		}
+
+		{
+			sqlite::Statement stmt = db->prepare("INSERT INTO ${struct.name}_${field.typeName} VALUES (?, ?)");
+			stmt.bind(1, obj->id);
+
+			for(std::vector<${field.typeName}>::iterator it = obj->${field.name}List.begin(); it != obj->${field.name}List.end(); it++)
+			{
+				${field.typeName} &ref = *it;
+
+				if (ref.id < 0)
+					throw sqlite::DatabaseException(SQLITE_ERROR, "${field.typeName} is not stored");
+
+				stmt.bind(2, s.id);
+				stmt.execute();
+			}
+		}
+	}
+#end
+#end
+
+	trans.commit();
+	
+	if (!update)
+		obj->id = id;
+}
+

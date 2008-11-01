@@ -16,7 +16,7 @@ public class Utils
 		return name.toUpperCase();
 	}
 	
-	public String toVariable(String name)
+	public static String toVariable(String name)
 	{
 		String ret = "";
 		char last = '\0';
@@ -54,5 +54,25 @@ public class Utils
 	public static String getGetterName(StructField f)
 	{
 		return (f.type == StructField.Type.Boolean ? "is" : "get") + firstUp(f.name);
+	}
+	
+	public static boolean hasList(Struct s)
+	{
+		for (StructField f : s.fields)
+		{
+			if (f.isList())
+				return true;
+		}
+		return false;
+	}
+	
+	public static boolean hasFlags(Struct s)
+	{
+		for (StructField f : s.fields)
+		{
+			if (f.flags.size() > 0)
+				return true;
+		}
+		return false;
 	}
 }

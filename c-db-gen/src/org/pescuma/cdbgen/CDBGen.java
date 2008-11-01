@@ -10,6 +10,7 @@ import org.pescuma.cdbgen.outputer.Outputer;
 import org.pescuma.cdbgen.outputer.OutputerException;
 import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.palm.PalmOutputer;
+import org.pescuma.cdbgen.sqlite.SqliteOutputer;
 import org.pescuma.cdbgen.velocity.VelocityLogger;
 import org.pescuma.cdbgen.velocity.VelocityResourceLoader;
 
@@ -31,8 +32,10 @@ public class CDBGen
 		// TODO: Ask for config data
 		Config cfg = new Config();
 		cfg.recFile = new File("test.rec");
-		cfg.generateForPalm = true;
-		cfg.palmOutputDir = new File(".");
+//		cfg.generateForPalm = true;
+//		cfg.palmOutputDir = new File(".");
+		cfg.generateForSqlite = true;
+		cfg.sqliteOutputDir = new File(".");
 		
 		try
 		{
@@ -63,12 +66,14 @@ public class CDBGen
 	
 	private static void process(Config cfg) throws IOException
 	{
-		List<Struct> structs = new RecParser().parse("Produto.rec");
+		List<Struct> structs = new RecParser().parse(cfg.recFile);
 		
 		for (Struct struct : structs)
 		{
 			if (cfg.generateForPalm && cfg.palmOutputDir != null)
 				processOutputer(cfg.recFile, new PalmOutputer(), struct, cfg.palmOutputDir);
+			if (cfg.generateForSqlite && cfg.sqliteOutputDir != null)
+				processOutputer(cfg.recFile, new SqliteOutputer(), struct, cfg.sqliteOutputDir);
 		}
 	}
 	

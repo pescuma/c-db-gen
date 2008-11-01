@@ -3,39 +3,30 @@ package org.pescuma.cdbgen.palm;
 import java.io.File;
 
 import org.pescuma.cdbgen.Struct;
-import org.pescuma.cdbgen.StructField;
-import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.outputer.VelocityOutputer;
 
 public class PalmOutputer extends VelocityOutputer
 {
-	private static final String[] invalidFieldNames = { "category", "uniqueID", "secret" };
-	
 	public String getName()
 	{
 		return "Palm";
 	}
 	
 	@Override
-	protected void validate(Struct struct)
+	protected String[] getInvalidFieldNames()
 	{
-		for (StructField field : struct.fields)
-		{
-			for (String invName : invalidFieldNames)
-				if (invName.equalsIgnoreCase(field.name))
-					throw new OutputerValidationException(struct, field, field.name + " is a reserved field name");
-		}
+		return new String[] { "category", "uniqueID", "secret" };
 	}
 	
 	@Override
-	protected File getFilename(Struct struct, File path)
+	protected File[] getFilenames(Struct struct, File path)
 	{
-		return new File(path, struct.name + ".h");
+		return new File[] { new File(path, struct.name + ".h") };
 	}
 	
 	@Override
-	protected String getTemplateName()
+	protected String[] getTemplateNames()
 	{
-		return "palm.vm";
+		return new String[] { "palm.vm" };
 	}
 }

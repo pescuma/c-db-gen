@@ -1,7 +1,8 @@
 #macro( getter $field )$utils.getGetterName($field)#end
 #macro( setter $field )$utils.getSetterName($field)#end
 #macro( fu $var )$utils.firstUp($var)#end
-#set( $fileDefine = "__${utils.toDefine($struct)}_H__" )
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#set( $fileDefine = "__${utils.toDefine($struct.name)}_H__" )
 #ifndef $fileDefine
 # define $fileDefine
 
@@ -10,9 +11,9 @@
 
 
 #set( $id = 1 )
-#foreach( $field in $fields )
+#foreach( $field in $struct.fields )
 #foreach( $flag in $field.flags )
-#define ${utils.toDefine($struct)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)} $id
+#define ${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)} $id
 #set( $id = 2 * $id )
 #end
 #end
@@ -20,9 +21,9 @@
 
 
 #end
-struct $struct
+struct $struct.name
 {
-#foreach( $field in $fields )
+#foreach( $field in $struct.fields )
 #if ( $field.list )
 	$field.typeName $field.name[1];
 #else
@@ -36,14 +37,14 @@ class ${struct}Record
 {
 private:
 	DBRecord *rec;
-	$struct *data;
+	$struct.name *data;
 	
 	void read()
 	{
 		if (rec->lockLevel() != 0)
 			return;
 		
-		data = ($struct *) rec->viewPtr();
+		data = ($struct.name *) rec->viewPtr();
 	}
 	
 	void write()
@@ -54,7 +55,7 @@ private:
 		if (rec->lockLevel() == 2)
 			rec->release();
 		
-		data = ($struct *) rec->lockPtr();
+		data = ($struct.name *) rec->lockPtr();
 	}
 	
 public:
@@ -70,7 +71,7 @@ public:
 	}
 	
 	
-#foreach( $field in $fields )
+#foreach( $field in $struct.fields )
 	$field.typeName#if( $field.array > 0 || $field.list ) *#end $utils.getGetterName($field)()
 	{
 		read();
@@ -79,25 +80,25 @@ public:
 #if( $field.list )
 	UInt16 get#fu($field.name)Length()
 	{
-		return (MemHandleSize(rec->view()) - sizeof($struct)) / sizeof($field.typeName) + 1;
+		return (MemHandleSize(rec->view()) - sizeof($struct.name)) / sizeof($field.typeName) + 1;
 	}
 #else
 	void #setter($field)($field.typeName#if( $field.array > 0 ) *#end $field.name)
 	{
 		write();
 #if( $field.array == 0 )
-		DmWrite(data, (UInt32) &((($struct *) NULL)->$field.name), &$field.name, sizeof($field.typeName));
+		DmWrite(data, (UInt32) &((($struct.name *) NULL)->$field.name), &$field.name, sizeof($field.typeName));
 #elseif( $field.type.name() == "Char" )
 		Char tmp[$field.array];
 		StrNCopy(tmp, $field.name, $field.array);
 #set( $last = $field.array - 1 )
 		tmp[$last] = chrNull;
 		
-		DmWrite(data, (UInt32) &((($struct *) NULL)->$field.name), $field.name, $field.array * sizeof($field.typeName));
+		DmWrite(data, (UInt32) &((($struct.name *) NULL)->$field.name), $field.name, $field.array * sizeof($field.typeName));
 #end
 	}
 #foreach( $flag in $field.flags )
-#set( $define = "${utils.toDefine($struct)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)}" )
+#set( $define = "${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)}" )
 #set( $var = $utils.toVariable($flag) )
 	Boolean is#fu($var)()
 	{
@@ -115,7 +116,7 @@ public:
 
 #end
 	
-	const $struct * const getPtr()
+	const $struct.name * const getPtr()
 	{
 		read();
 		return data;
