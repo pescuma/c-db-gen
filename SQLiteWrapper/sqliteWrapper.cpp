@@ -2,7 +2,6 @@
 
 #include "Sqlite.h"
 #include "scope.h"
-#include "Product.h"
 
 
 
@@ -72,18 +71,6 @@ int main(int argc, char* argv[])
 			while(stmt.step())
 				printf("%d\t%s\n", stmt.getColumnAsInt(0), scope<TCHAR *>(stmt.getColumnAsString(1)));
 		}
-
-		Product p;
-		strcpy(p.code, "a");
-
-		Sell s;
-		p.sells().push_back(s);
-		Sell &x = p.sells()[0];
-		Sell::store(&sqlite, &s);
-
-		Product::createTable(&sqlite);
-		Product::store(&sqlite, &p);
-
 
 		sqlite.close();
 
