@@ -1,0 +1,294 @@
+<project name="c-db-gen" default="dist" basedir=".">
+	<description>
+        c-db-gen build file
+    </description>
+
+	<script language="javascript">
+		<![CDATA[ 
+	        importClass(java.util.Locale);
+	        actualDefault = Locale.getDefault();
+	        project.setProperty("---actual-default-locale---", actualDefault);
+	        Locale.setDefault(Locale.US);
+	    ]]>
+	</script>
+
+	<!-- set global properties for this build -->
+	<property name="project" value="c-db-gen" />
+	<property name="libs.src" location="../lib" />
+	<property name="libs.build" location="lib" />
+	<property name="src.src" location="../src" />
+	<property name="src.test" location="../test" />
+	<property name="build.src" location="build/src" />
+	<property name="build.test" value="build/test" />
+	<property name="build.debug" location="build/debug" />
+	<property name="build.warning" location="build/warning" />
+	<property name="build.crap4j" location="build/crap4j" />
+	<property name="build.emma" location="build/emma" />
+	<property name="dist.jar" location="dist/lib" />
+	<property name="dist.junit" location="dist/junit" />
+	<property name="dist.crap4j" location="dist/crap4j" />
+	<property name="dist.emma" location="dist/emma" />
+	<property name="dist.findbugs" location="dist/findbugs" />
+
+	<target name="init" depends="clean">
+		<!-- Create the time stamp -->
+		<tstamp />
+	</target>
+
+	<target name="compile" depends="init" description="compile the source">
+		<!-- Create the build directory structure used by compile -->
+		<mkdir dir="${build.src}" />
+
+		<!-- Compile the java code from ${src} into ${build} -->
+		<javac srcdir="${src.src}" destdir="${build.src}">
+			<classpath>
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+	</target>
+
+	<target name="compile-warning" depends="init">
+		<mkdir dir="${build.warning}" />
+
+		<javac srcdir="${src.src}" destdir="${build.warning}" compiler="org.eclipse.jdt.core.JDTCompilerAdapter" source="1.5" target="1.5">
+			<classpath>
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+			<compilerarg line="-warn:+hiding -warn:+conditionAssign -warn:+uselessTypeCheck" />
+		</javac>
+	</target>
+
+	<target name="compile-debug" depends="init" description="compile the source with version data">
+		<mkdir dir="${build.debug}" />
+
+		<javac srcdir="${src.src}" destdir="${build.debug}" debug="true">
+			<classpath>
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+	</target>
+
+	<target name="compile-tests" depends="compile-debug">
+		<mkdir dir="${build.test}" />
+
+		<javac srcdir="${src.test}" destdir="${build.test}" debug="true">
+			<classpath>
+				<pathelement location="${build.debug}" />
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+				<fileset dir="${libs.build}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+	</target>
+
+	<target name="test" depends="compile-tests">
+		<mkdir dir="${dist.junit}" />
+
+		<junit printsummary="yes" fork="yes" haltonerror="false" haltonfailure="false">
+			<classpath>
+				<pathelement location="${build.debug}" />
+				<pathelement location="${build.test}" />
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+				<fileset dir="${libs.build}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+
+			<formatter type="xml" />
+
+			<batchtest todir="${dist.junit}">
+				<fileset dir="${src.test}">
+					<include name="**/*Test*.java" />
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
+
+	<target name="crap4j" depends="compile-tests">
+		<mkdir dir="${dist.crap4j}" />
+		<mkdir dir="${build.crap4j}" />
+
+		<property name="CRAP4J_HOME" value="${libs.build}/crap4j" />
+
+		<taskdef name="crap4j" classname="org.crap4j.anttask.Crap4jAntTask">
+			<classpath>
+				<fileset dir="${CRAP4J_HOME}/lib">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+		</taskdef>
+
+		<crap4j projectdir="${build.crap4j}" outputDir="${dist.crap4j}" dontTest="false" debug="false" downloadAverages="false" crap4jhome="${CRAP4J_HOME}">
+			<classes>
+				<pathElement location="${build.debug}" />
+			</classes>
+
+			<srces>
+				<pathElement location="${src.src}" />
+			</srces>
+
+			<testClasses>
+				<pathelement location="${build.test}" />
+			</testClasses>
+
+			<libClasspath>
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+				<fileset dir="${libs.build}">
+					<include name="*.jar" />
+				</fileset>
+				<!-- if you get errors loading any agitar classes, like the mock classes, add this entry -->
+				<!--
+				<fileset dir="${CRAP4J_HOME}/lib/com.agitar.eclipse.api_4.2.0.401405/lib/ext">
+				                    <include name="**/*.jar" />
+				                </fileset>
+				 -->
+			</libClasspath>
+		</crap4j>
+	</target>
+
+
+	<target name="emma" depends="compile-tests">
+		<mkdir dir="${build.emma}" />
+		<mkdir dir="${dist.emma}" />
+
+		<taskdef resource="emma_ant.properties">
+			<classpath>
+				<fileset dir="${libs.build}">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+		</taskdef>
+
+		<path id="emma.classpath">
+			<pathelement location="${build.debug}" />
+		</path>
+
+		<emma>
+			<instr instrpathref="emma.classpath" destdir="${build.emma}" metadatafile="${build.emma}/metadata.emma" merge="true">
+				<filter excludes="examples.*" />
+			</instr>
+		</emma>
+
+		<junit printsummary="yes" fork="yes" haltonerror="false" haltonfailure="false">
+			<classpath>
+				<!-- instrumented classes must be first in the classpath: -->
+				<pathelement location="${build.emma}" />
+				<pathelement location="${build.debug}" />
+				<pathelement location="${build.test}" />
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+				<fileset dir="${libs.build}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+
+			<jvmarg value="-Demma.coverage.out.file=${build.emma}/coverage.emma" />
+			<jvmarg value="-Demma.coverage.out.merge=true" />
+			<formatter type="xml" />
+
+			<batchtest todir="${build.emma}">
+				<fileset dir="${src.test}">
+					<include name="**/*Test*.java" />
+				</fileset>
+			</batchtest>
+		</junit>
+
+		<emma>
+			<report sourcepath="${src.src}">
+				<!-- collect all EMMA data dumps (metadata and runtime)
+	             [this can be done via nested <fileset> fileset elements
+	             or <file> elements pointing to a single file]:
+	        	-->
+				<fileset dir="${build.emma}">
+					<include name="*.emma" />
+				</fileset>
+
+				<!-- for every type of report desired, configure a nested
+	             element; various report parameters
+	             can be inherited from the parent <report>
+	             and individually overridden for each report type:
+	        	-->
+				<txt outfile="${dist.emma}/coverage.txt" depth="package" columns="class,method,block,line,name" />
+				<xml outfile="${dist.emma}/coverage.xml" depth="method" />
+				<html outfile="${dist.emma}/coverage.html" depth="method" columns="name,class,method,block,line" />
+			</report>
+		</emma>
+	</target>
+
+	<target name="findbugs" depends="compile-debug">
+		<mkdir dir="${dist.findbugs}" />
+
+		<property name="FINDBUGS_HOME" value="${libs.build}/findbugs" />
+
+		<taskdef name="findbugs" classname="edu.umd.cs.findbugs.anttask.FindBugsTask">
+			<classpath>
+				<fileset dir="${FINDBUGS_HOME}">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
+		</taskdef>
+
+		<findbugs home="${FINDBUGS_HOME}" output="xml:withMessages" outputFile="${dist.findbugs}/findbugs.xml" effort="max" projectName="${project}">
+			<auxClasspath>
+				<pathelement location="${build.debug}" />
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+			</auxClasspath>
+			<sourcePath path="${src.src}" />
+			<class location="${build.debug}" />
+		</findbugs>
+
+		<findbugs home="${FINDBUGS_HOME}" output="html" outputFile="${dist.findbugs}/findbugs.html" effort="max" projectName="${project}">
+			<auxClasspath>
+				<pathelement location="${build.debug}" />
+				<fileset dir="${libs.src}">
+					<include name="*.jar" />
+				</fileset>
+			</auxClasspath>
+			<sourcePath path="${src.src}" />
+			<class location="${build.debug}" />
+		</findbugs>
+
+	</target>
+
+	<target name="pack" depends="compile">
+		<!-- Create the distribution directory -->
+		<mkdir dir="${dist.jar}" />
+
+		<!-- Put everything in ${build} into the ${project}.jar file -->
+		<jar jarfile="${dist.jar}/${project}.jar" basedir="${build.src}" />
+
+		<zip zipfile="${dist.jar}/${project}-src.zip" basedir="${src.src}" />
+	</target>
+
+	<target name="dist" depends="clean, compile, pack, test, crap4j, emma, findbugs, compile-warning" description="generate the distribution">
+		<antcall target="clean-build" />
+	</target>
+
+	<target name="clean-build">
+		<delete dir="build" />
+	</target>
+
+	<target name="clean-dist">
+		<delete dir="dist" />
+	</target>
+
+	<target name="clean" depends="clean-build, clean-dist" description="clean up">
+	</target>
+
+</project>

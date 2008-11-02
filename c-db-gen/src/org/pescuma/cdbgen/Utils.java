@@ -4,9 +4,26 @@ import static java.lang.Character.*;
 
 public class Utils
 {
-	public static String firstUp(String name)
+	public static String firstUpper(String str)
 	{
-		return name.substring(0, 1).toUpperCase() + name.substring(1);
+		int len = str.length();
+		if (len <= 0)
+			return "";
+		else if (len == 1)
+			return str.toUpperCase();
+		else
+			return str.substring(0, 1).toUpperCase() + str.substring(1);
+	}
+	
+	public static String firstLower(String str)
+	{
+		int len = str.length();
+		if (len <= 0)
+			return "";
+		else if (len == 1)
+			return str.toLowerCase();
+		else
+			return str.substring(0, 1).toLowerCase() + str.substring(1);
 	}
 	
 	public static String toDefine(String name)
@@ -48,12 +65,12 @@ public class Utils
 	
 	public static String getSetterName(StructField f)
 	{
-		return "set" + firstUp(f.name);
+		return "set" + firstUpper(f.name);
 	}
 	
 	public static String getGetterName(StructField f)
 	{
-		return (f.type == StructField.Type.Boolean ? "is" : "get") + firstUp(f.name);
+		return (f.type == StructField.Type.Boolean ? "is" : "get") + firstUpper(f.name);
 	}
 	
 	public static boolean hasList(Struct s)

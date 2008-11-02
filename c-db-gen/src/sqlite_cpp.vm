@@ -1,6 +1,6 @@
 #macro( getter $field )$utils.getGetterName($field)#end
 #macro( setter $field )$utils.getSetterName($field)#end
-#macro( fu $var )$utils.firstUp($var)#end
+#macro( fu $var )$utils.firstUpper($var)#end
 #macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
 \#include "${struct.name}.h"
 
