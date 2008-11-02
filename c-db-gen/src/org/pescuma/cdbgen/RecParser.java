@@ -26,89 +26,96 @@ public class RecParser
 		Struct cur = null;
 		
 		BufferedReader in = new BufferedReader(new FileReader(file));
-		String line;
-		while ((line = in.readLine()) != null)
+		try
 		{
-			line = line.trim();
-			if (line.isEmpty())
-				continue;
-			if (line.charAt(0) == '#')
-				continue;
-			
-			Matcher m = newStruct.matcher(line);
-			if (m.matches())
+			String line;
+			while ((line = in.readLine()) != null)
 			{
-				cur = new Struct();
-				cur.name = m.group(1);
-				structs.add(cur);
-				continue;
-			}
-			
-			m = startStruct.matcher(line);
-			if (m.matches())
-				continue;
-			
-			m = field.matcher(line);
-			if (m.matches())
-			{
-				StructField f = new StructField();
-				f.name = m.group(2);
-				f.type = StructField.Type.valueOf(m.group(1));
-				String arr = m.group(4);
-				if (arr == null)
-					f.array = 0;
-				else
-					f.array = Integer.parseInt(arr);
-				cur.fields.add(f);
-				continue;
-			}
-			
-			m = flagField.matcher(line);
-			if (m.matches())
-			{
-				StructField f = new StructField();
-				f.name = m.group(2);
-				f.type = StructField.Type.valueOf(m.group(1));
-				String[] flags = m.group(3).split("\\|");
-				for (int i = 0; i < flags.length; i++)
+				line = line.trim();
+				if (line.isEmpty())
+					continue;
+				if (line.charAt(0) == '#')
+					continue;
+				
+				Matcher m = newStruct.matcher(line);
+				if (m.matches())
 				{
-					String fn = flags[i].trim();
-					if (!fn.isEmpty())
-						f.flags.add(fn);
+					cur = new Struct();
+					cur.name = m.group(1);
+					structs.add(cur);
+					continue;
 				}
-				cur.fields.add(f);
-				continue;
-			}
-			
-			m = listField.matcher(line);
-			if (m.matches())
-			{
-				StructField f = new StructField();
-				f.name = m.group(2);
-				try
+				
+				m = startStruct.matcher(line);
+				if (m.matches())
+					continue;
+				
+				m = field.matcher(line);
+				if (m.matches())
 				{
+					StructField f = new StructField();
+					f.name = m.group(2);
 					f.type = StructField.Type.valueOf(m.group(1));
+					String arr = m.group(4);
+					if (arr == null)
+						f.array = 0;
+					else
+						f.array = Integer.parseInt(arr);
+					cur.fields.add(f);
+					continue;
 				}
-				catch (IllegalArgumentException e)
+				
+				m = flagField.matcher(line);
+				if (m.matches())
 				{
-					f.type = null;
-					f.typeName = m.group(1);
+					StructField f = new StructField();
+					f.name = m.group(2);
+					f.type = StructField.Type.valueOf(m.group(1));
+					String[] flags = m.group(3).split("\\|");
+					for (int i = 0; i < flags.length; i++)
+					{
+						String fn = flags[i].trim();
+						if (!fn.isEmpty())
+							f.flags.add(fn);
+					}
+					cur.fields.add(f);
+					continue;
 				}
-				f.list = true;
-				cur.fields.add(f);
-				continue;
+				
+				m = listField.matcher(line);
+				if (m.matches())
+				{
+					StructField f = new StructField();
+					f.name = m.group(2);
+					try
+					{
+						f.type = StructField.Type.valueOf(m.group(1));
+					}
+					catch (IllegalArgumentException e)
+					{
+						f.type = null;
+						f.typeName = m.group(1);
+					}
+					f.list = true;
+					cur.fields.add(f);
+					continue;
+				}
+				
+				m = endStruct.matcher(line);
+				if (m.matches())
+				{
+					cur = null;
+					continue;
+				}
+				
+				throw new IllegalArgumentException("Unknown line: " + line);
 			}
-			
-			m = endStruct.matcher(line);
-			if (m.matches())
-			{
-				cur = null;
-				continue;
-			}
-			
-			throw new IllegalArgumentException("Unknown line: " + line);
+			return structs;
 		}
-		return structs;
+		finally
+		{
+			in.close();
+		}
 	}
 	
 }

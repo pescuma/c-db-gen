@@ -69,6 +69,7 @@ public:
 	
 	void store();
 	
+	
 	static void createTable(sqlite::Database *db);
 	
 	static $struct.name query(sqlite::Database *db, sqlite3_int64 id);

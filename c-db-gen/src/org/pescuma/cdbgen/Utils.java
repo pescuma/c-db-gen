@@ -35,7 +35,7 @@ public class Utils
 	
 	public static String toVariable(String name)
 	{
-		String ret = "";
+		StringBuilder ret = new StringBuilder();
 		char last = '\0';
 		for (int i = 0; i < name.length(); i++)
 		{
@@ -43,7 +43,7 @@ public class Utils
 			
 			if (i == 0)
 			{
-				ret += toLowerCase(c);
+				ret.append(toLowerCase(c));
 			}
 			else if (c == ' ' || c == '_' || c == '.')
 			{
@@ -51,16 +51,16 @@ public class Utils
 			}
 			else if (last == ' ' || last == '_' || last == '.')
 			{
-				ret += toUpperCase(c);
+				ret.append(toUpperCase(c));
 			}
 			else
 			{
-				ret += toLowerCase(c);
+				ret.append(toLowerCase(c));
 			}
 			
 			last = c;
 		}
-		return ret;
+		return ret.toString();
 	}
 	
 	public static String getSetterName(StructField f)

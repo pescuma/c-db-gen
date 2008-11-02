@@ -34,7 +34,9 @@ public abstract class VelocityOutputer implements Outputer
 				Template template = Velocity.getTemplate(templateNames[i]);
 				
 				File file = files[i];
-				file.getParentFile().mkdirs();
+				File parentFile = file.getParentFile();
+				if (!parentFile.exists() && !parentFile.mkdirs())
+					throw new IllegalStateException("Could not create the output path");
 				
 				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), getEncoding()));
 				try
