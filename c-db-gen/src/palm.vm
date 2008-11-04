@@ -1,12 +1,14 @@
 #macro( getter $field )$utils.getGetterName($field)#end
 #macro( setter $field )$utils.getSetterName($field)#end
 #macro( fu $var )$utils.firstUpper($var)#end
-#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( isString $var )$utils.isString($var)#end
+#macro( type $var )$utils.typeName($var)#end
 #set( $fileDefine = "__${utils.toDefine($struct.name)}_H__" )
 #ifndef $fileDefine
 # define $fileDefine
 
 \#include <PalmOS.h>
+
 \#include "helpers/DB.h"
 
 
@@ -25,15 +27,17 @@ struct $struct.name
 {
 #foreach( $field in $struct.fields )
 #if ( $field.list )
-	$field.typeName $field.name[1];
+	#type($field) $field.name[1];
+#elseif( not $field.primitive )
+	UInt32 ${field.name}ID;
 #else
-	$field.typeName $field.name#if( $field.array > 0)[$field.array]#end;
+	#type($field) $field.name#if( $field.array > 0)[$field.array]#end;
 #end
 #end
 };
 
 
-class ${struct}Record
+class ${struct.name}Record
 {
 private:
 	DBRecord *rec;
@@ -59,42 +63,56 @@ private:
 	}
 	
 public:
-	${struct}Record(DBRecord *rec)
+	${struct.name}Record(DBRecord *rec)
 	{
 		this->rec = rec;
 		data = NULL;
 	}
 	
-	~${struct}Record()
+	~${struct.name}Record()
 	{
 		delete rec;
 	}
 	
 	
 #foreach( $field in $struct.fields )
-	$field.typeName#if( $field.array > 0 || $field.list ) *#end $utils.getGetterName($field)()
+#if( not $field.list and not $field.primitive )
+	UInt32 #getter($field)()
+	{
+		read();
+		return data->${field.name}ID;
+	}
+#else
+	#type($field)#if( $field.array > 0 || $field.list ) *#end #getter($field)()
 	{
 		read();
 		return data->$field.name;
 	}
+#end
 #if( $field.list )
 	UInt16 get#fu($field.name)Length()
 	{
-		return (MemHandleSize(rec->view()) - sizeof($struct.name)) / sizeof($field.typeName) + 1;
+		return (MemHandleSize(rec->view()) - sizeof($struct.name)) / sizeof(#type($field)) + 1;
+	}
+#elseif( not $field.primitive )
+	void #setter($field)(UInt32 ${field.name}ID)
+	{
+		write();
+		DmWrite(data, (UInt32) &((($struct.name *) NULL)->${field.name}ID), &${field.name}ID, sizeof(UInt32));
 	}
 #else
-	void #setter($field)($field.typeName#if( $field.array > 0 ) *#end $field.name)
+	void #setter($field)(#type($field)#if( $field.array > 0 ) *#end $field.name)
 	{
 		write();
 #if( $field.array == 0 )
-		DmWrite(data, (UInt32) &((($struct.name *) NULL)->$field.name), &$field.name, sizeof($field.typeName));
-#elseif( $field.type.name() == "Char" )
+		DmWrite(data, (UInt32) &((($struct.name *) NULL)->$field.name), &$field.name, sizeof(#type($field)));
+#elseif( $field.string )
 		Char tmp[$field.array];
 		StrNCopy(tmp, $field.name, $field.array);
 #set( $last = $field.array - 1 )
 		tmp[$last] = chrNull;
 		
-		DmWrite(data, (UInt32) &((($struct.name *) NULL)->$field.name), $field.name, $field.array * sizeof($field.typeName));
+		DmWrite(data, (UInt32) &((($struct.name *) NULL)->$field.name), $field.name, $field.array * sizeof(#type($field)));
 #end
 	}
 #foreach( $flag in $field.flags )

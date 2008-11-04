@@ -18,6 +18,7 @@ public class RecParser
 	private static final Pattern field = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*(\\[([0-9]+)\\])?\\s*;\\s*$");
 	private static final Pattern flagField = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*((\\|\\s*" + var + "\\s*)+);\\s*$");
 	private static final Pattern listField = Pattern.compile("^\\s*List<(" + var + ")>\\s+(" + var + ")\\s*;\\s*$");
+	private static final Pattern referenceField = Pattern.compile("^\\s*(" + var + ")\\s+(" + var + ")\\s*;\\s*$");
 	private static final Pattern endStruct = Pattern.compile("^\\s*\\}\\s*;?\\s*$");
 	
 	public List<Struct> parse(File file) throws IOException
@@ -101,6 +102,24 @@ public class RecParser
 					continue;
 				}
 				
+				m = referenceField.matcher(line);
+				if (m.matches())
+				{
+					StructField f = new StructField();
+					f.name = m.group(2);
+					try
+					{
+						f.type = StructField.Type.valueOf(m.group(1));
+					}
+					catch (IllegalArgumentException e)
+					{
+						f.type = null;
+						f.typeName = m.group(1);
+					}
+					cur.fields.add(f);
+					continue;
+				}
+				
 				m = endStruct.matcher(line);
 				if (m.matches())
 				{
@@ -110,12 +129,18 @@ public class RecParser
 				
 				throw new IllegalArgumentException("Unknown line: " + line);
 			}
-			return structs;
 		}
 		finally
 		{
 			in.close();
 		}
+		
+		for (Struct s : structs)
+			for (StructField f : s.fields)
+				if (f.typeName != null && Utils.findStruct(structs, f.typeName) == null)
+					throw new IllegalArgumentException("Unknown type: " + f.typeName);
+		
+		return structs;
 	}
 	
 }

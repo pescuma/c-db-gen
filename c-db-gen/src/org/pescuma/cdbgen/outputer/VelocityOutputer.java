@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
+import java.util.List;
 
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -14,7 +15,7 @@ import org.pescuma.cdbgen.Utils;
 
 public abstract class VelocityOutputer implements Outputer
 {
-	public void output(Struct struct, File path)
+	public void output(Struct struct, String namespace, File path, List<Struct> structs)
 	{
 		validate(struct);
 		
@@ -29,7 +30,7 @@ public abstract class VelocityOutputer implements Outputer
 			try
 			{
 				VelocityContext context = new VelocityContext();
-				addVariables(context, struct);
+				addVariables(context, struct, namespace, structs);
 				
 				Template template = Velocity.getTemplate(templateNames[i]);
 				
@@ -81,9 +82,16 @@ public abstract class VelocityOutputer implements Outputer
 		return "UTF8";
 	}
 	
-	protected void addVariables(VelocityContext context, Struct struct)
+	protected void addVariables(VelocityContext context, Struct struct, String namespace, List<Struct> structs)
 	{
 		context.put("struct", struct);
-		context.put("utils", new Utils());
+		context.put("structs", structs);
+		context.put("namespace", namespace.trim());
+		context.put("utils", getUtils());
+	}
+	
+	protected Utils getUtils()
+	{
+		return new Utils();
 	}
 }

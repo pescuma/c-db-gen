@@ -1,5 +1,7 @@
 package org.pescuma.cdbgen;
 
+import static org.pescuma.cdbgen.StructField.Type.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,13 +25,6 @@ public class StructField
 	public boolean list;
 	public String name;
 	public final List<String> flags = new ArrayList<String>();
-	
-	public String getTypeName()
-	{
-		if (typeName != null)
-			return typeName;
-		return type.name();
-	}
 	
 	public Type getType()
 	{
@@ -61,9 +56,14 @@ public class StructField
 		return flags;
 	}
 	
+	public boolean isString()
+	{
+		return type == Char && array > 0;
+	}
+	
 	@Override
 	public String toString()
 	{
-		return type.name() + " " + name + (array > 0 ? "[" + array + "]" : "");
+		return (type == null ? typeName : type.name()) + " " + name + (array > 0 ? "[" + array + "]" : "");
 	}
 }

@@ -1,7 +1,9 @@
 #macro( getter $field )$utils.getGetterName($field)#end
 #macro( setter $field )$utils.getSetterName($field)#end
 #macro( fu $var )$utils.firstUpper($var)#end
+#macro( isString $var )$utils.isString($var)#end
 #macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( type $var )$utils.typeName($var)#end
 #set( $fileDefine = "__${utils.toDefine($struct.name)}_H__" )
 #ifndef $fileDefine
 # define $fileDefine
@@ -9,14 +11,29 @@
 \#include <windows.h>
 \#include <tchar.h>
 \#include <vector>
+#if( $utils.hasString($struct) )
+\#include <string>
+#end
 \#include "SQLite.h"
-#if( $utils.hasList($struct) )
+#if( $utils.hasString($struct) )
+
+namespace std {
+typedef basic_string<TCHAR, char_traits<TCHAR>, allocator<TCHAR> > tstring;
+}
+#end
+#if( $utils.hasList($struct) or $utils.hasReference($struct) )
 
 #foreach( $field in $struct.fields )
-#if ( $field.list and not $field.primitive )
-\#include "${field.typeName}.h"
+#if ( $field.list or not $field.primitive )
+\#include "#type($field).h"
 #end
 #end
+#end
+#if( $namespace != '' )
+
+
+namespace $namespace
+{
 #end
 #if( $utils.hasFlags($struct) )
 
@@ -62,7 +79,7 @@ public:
 
 #foreach( $field in $struct.fields )
 #if ( $field.list )
-	std::vector<${field.typeName}> &${field.name}();
+	std::vector<#type($field)> &${field.name}();
 #end
 #end
 #end
@@ -78,6 +95,12 @@ public:
 	static void store(sqlite::Database *db, ${struct.name} *obj);
 	
 };
+#if( $namespace != '' )
+
+
+
+}
+#end
 
 
 #endif // $fileDefine

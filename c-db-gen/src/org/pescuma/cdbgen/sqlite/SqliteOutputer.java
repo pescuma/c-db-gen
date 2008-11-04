@@ -2,8 +2,8 @@ package org.pescuma.cdbgen.sqlite;
 
 import java.io.File;
 
-import org.apache.velocity.VelocityContext;
 import org.pescuma.cdbgen.Struct;
+import org.pescuma.cdbgen.Utils;
 import org.pescuma.cdbgen.outputer.VelocityOutputer;
 
 public class SqliteOutputer extends VelocityOutputer
@@ -32,9 +32,8 @@ public class SqliteOutputer extends VelocityOutputer
 	}
 	
 	@Override
-	protected void addVariables(VelocityContext context, Struct struct)
+	protected Utils getUtils()
 	{
-		super.addVariables(context, struct);
-		context.put("utils", new SqliteUtils());
+		return new SqliteUtils();
 	}
 }

@@ -1,0 +1,195 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( isString $var )$utils.isString($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( type $var )$utils.typeName($var)#end
+#set( $class = "${struct.name}Record" )
+\#include "${class}.h"
+#if( $utils.hasString($struct) )
+\#include "scope.h"
+#end
+
+
+
+#if( $namespace != '' )
+namespace $namespace
+{
+
+
+
+#end
+${struct.name}::${struct.name}()
+{
+	Reset();
+}
+
+
+void ${struct.name}::Reset()
+{
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	${field.name}.clear();
+#elseif( not $field.primitive )
+	${field.name}ID = 0;
+#elseif( $field.string )
+	${field.name} = _T("");
+#elseif( $field.array > 0 )
+	memset(${field.name}, 0, ${field.array} * sizeof(#type($field))); 
+#elseif( $field.type.name() == 'Boolean' )
+	$field.name = false;
+#else
+	$field.name = 0;
+#end
+#end
+}
+
+
+
+${class}::${class}() : CPCustomRecord()
+{
+	Reset();
+}
+
+
+${class}::${class}(CPalmRecord &rec) : CPCustomRecord(rec)
+{
+    ConvertFromGeneric(rec);
+}
+
+
+${class}::~${class}()
+{
+}
+
+
+void ${class}::Reset()
+{
+    uniqueID = 0;
+	category = 0;
+	secret = FALSE;
+	
+	data.Reset();
+}
+#if( $utils.hasString($struct) )
+
+
+void ${class}::fromString(std::tstring &out, char *in, size_t inSize)
+{
+	size_t inLen = min(strlen(in), inSize-1);
+
+	size_t fullInSize = (inLen + 1) * 2;
+	scope<char *> fullIn = (char *) malloc(fullInSize);
+	if (fullIn == NULL)
+		throw _T("Could not allocate memory");
+
+	AddCRs(in, fullIn, inLen, fullInSize);
+	fullIn[fullInSize-1] = 0;
+
+#ifdef UNICODE
+
+	int tmpSize = MultiByteToWideChar(CP_ACP, 0, fullIn, -1, NULL, 0);
+	if (tmpSize <= 0)
+		throw _T("Could not convert string to WCHAR");
+
+	scope<WCHAR *> tmp = (WCHAR *) malloc(size * sizeof(WCHAR));
+	if (tmp == NULL)
+		throw _T("malloc returned NULL");
+
+	MultiByteToWideChar(CP_ACP, 0, fullIn, -1, tmp, tmpSize);
+
+	out = tmp;
+
+\#else
+
+	out = fullIn;
+
+#endif
+}
+#end
+
+
+void ${class}::Read(${struct.name} &data, BYTE *pBuf, size_t size)
+{
+#if( $utils.hasList($struct) )
+	BYTE *start = pBuf;
+	
+#end
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	{
+		#type($field)Record reader;
+		
+#set( $fieldTypeStruct = $utils.findStruct($structs, "#type($field)") )
+#set( $size = $utils.sizeOf($fieldTypeStruct) )
+		int len = (size - (pBuf - start)) / $size;
+		for(int i = 0; i < len; i++)
+		{ 
+			#type($field) tmp;
+			reader.Read(tmp, pBuf, $size);
+			pBuf += $size;
+			data.${field.name}.push_back(tmp);
+		}
+	}
+#elseif( not $field.primitive )
+	data.${field.name}ID = (DWORD) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf);
+	pBuf += 4;
+#elseif( $field.string )
+	fromString(data.${field.name}, (char *) pBuf, $field.array);
+	pBuf += $field.array;
+#elseif( $field.array > 0 )
+	ERR!!! // TODO
+	memmove(data.${field.name}, pBuf, $field.array * sizeof(#type($field))); 
+	pBuf += $field.array * sizeof(#type($field));
+#elseif( $field.type.name() == 'Boolean' )
+	data.$field.name = (*pBuf != 0);
+	pBuf++;
+#elseif( $field.type.name() == 'UInt8' )
+	data.$field.name = *pBuf;
+	pBuf++;
+#elseif( $field.type.name() == 'Int8' )
+	data.$field.name = (#type($field)) *pBuf;
+	pBuf++;
+#elseif( $field.type.name() == 'UInt16' )
+	data.$field.name = (#type($field)) CPalmRecord::FlipWord(* (WORD *) pBuf);
+	pBuf += 2;
+#elseif( $field.type.name() == 'Int16' )
+	data.$field.name = (#type($field)) CPalmRecord::FlipWord(* (WORD *) pBuf);
+	pBuf += 2;
+#elseif( $field.type.name() == 'UInt32' )
+	data.$field.name = (#type($field)) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf);
+	pBuf += 4;
+#elseif( $field.type.name() == 'Int32' )
+	data.$field.name = (#type($field)) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf);
+	pBuf += 4;
+#end
+#end
+}
+
+
+long ${class}::ConvertFromGeneric(CPalmRecord &palmRec, BOOL bClearAttributes)
+{
+	if (palmRec.GetRawDataSize() == 0)
+        // then this is a deleted record because it has no data
+        return GEN_ERR_EMPTY_RECORD;
+
+	uniqueID = palmRec.GetID();
+	category = palmRec.GetCategory();
+	secret = palmRec.IsPrivate();
+
+	${class}::Read(data, palmRec.GetRawData(), palmRec.GetRawDataSize()); 
+	
+	return 0;
+}
+
+
+long ${class}::ConvertToGeneric(CPalmRecord &palmRec, BOOL bClearAttributes)
+{
+	return 0;
+}
+#if( $namespace != '' )
+
+
+
+}
+#end

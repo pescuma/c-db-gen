@@ -1,4 +1,4 @@
-package org.pescuma.cdbgen.palm;
+package org.pescuma.cdbgen.palmconduit;
 
 import java.io.File;
 
@@ -8,11 +8,11 @@ import org.pescuma.cdbgen.Utils;
 import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.outputer.VelocityOutputer;
 
-public class PalmOutputer extends VelocityOutputer
+public class PalmConduitOutputer extends VelocityOutputer
 {
 	public String getName()
 	{
-		return "Palm";
+		return "PalmConduit";
 	}
 	
 	@Override
@@ -37,18 +37,18 @@ public class PalmOutputer extends VelocityOutputer
 	@Override
 	protected File[] getFilenames(Struct struct, File path)
 	{
-		return new File[] { new File(path, struct.name + ".h") };
+		return new File[] { new File(path, struct.name + "Record.h"), new File(path, struct.name + "Record.cpp") };
 	}
 	
 	@Override
 	protected String[] getTemplateNames()
 	{
-		return new String[] { "palm.vm" };
+		return new String[] { "palmConduit_h.vm", "palmConduit_cpp.vm" };
 	}
 	
 	@Override
 	protected Utils getUtils()
 	{
-		return new PalmUtils();
+		return new PalmConduitUtils();
 	}
 }

@@ -1,6 +1,9 @@
 package org.pescuma.cdbgen;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
@@ -18,6 +21,7 @@ import org.pescuma.cdbgen.outputer.Outputer;
 import org.pescuma.cdbgen.outputer.OutputerException;
 import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.palm.PalmOutputer;
+import org.pescuma.cdbgen.palmconduit.PalmConduitOutputer;
 import org.pescuma.cdbgen.sqlite.SqliteOutputer;
 import org.pescuma.cdbgen.velocity.VelocityLogger;
 import org.pescuma.cdbgen.velocity.VelocityResourceLoader;
@@ -31,23 +35,34 @@ public class CDBGen
 	private static class ConfigItem
 	{
 		public boolean enabled;
-		
 		@NotNull
 		public File outputDir;
+		@NotNull
+		public String namespace;
+		
+		final Outputer outputer;
+		
+		public ConfigItem(Outputer outputer)
+		{
+			this.outputer = outputer;
+		}
 	}
 	
 	private static class Config
 	{
 		public File recFile;
-		public final ConfigItem palm = new ConfigItem();
-		public final ConfigItem sqlite = new ConfigItem();
+		public final ConfigItem sqlite = new ConfigItem(new SqliteOutputer());
+		public final ConfigItem palm = new ConfigItem(new PalmOutputer());
+		public final ConfigItem palmConduit = new ConfigItem(new PalmConduitOutputer());
 	}
 	
 	public static void main(String[] args)
 	{
 		Config cfg = new Config();
+		loadFromProperties(cfg);
 		if (!askForConfigData(cfg))
 			return;
+		saveToProperties(cfg);
 		
 		initVelocity();
 		
@@ -59,6 +74,110 @@ public class CDBGen
 		{
 			e.printStackTrace();
 		}
+	}
+	
+	private static void loadFromProperties(Config cfg)
+	{
+		File file = new File("c-db-gen.properties");
+		if (!file.exists())
+			return;
+		
+		Properties props = new Properties();
+		FileReader reader = null;
+		try
+		{
+			reader = new FileReader(file);
+			try
+			{
+				props.load(reader);
+			}
+			finally
+			{
+				reader.close();
+			}
+		}
+		catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+			return;
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			return;
+		}
+		
+		cfg.recFile = toFile(props.getProperty("recFile", ""));
+		get(cfg.sqlite, props, "sqlite");
+		get(cfg.palm, props, "palm");
+		get(cfg.palmConduit, props, "palmConduit");
+	}
+	
+	private static void saveToProperties(Config cfg)
+	{
+		Properties props = new Properties();
+		props.setProperty("recFile", toString(cfg.recFile));
+		set(props, "sqlite", cfg.sqlite);
+		set(props, "palm", cfg.palm);
+		set(props, "palmConduit", cfg.palmConduit);
+		
+		try
+		{
+			FileOutputStream out = new FileOutputStream(new File("c-db-gen.properties"));
+			try
+			{
+				props.store(out, null);
+			}
+			finally
+			{
+				out.close();
+			}
+		}
+		catch (FileNotFoundException e)
+		{
+			e.printStackTrace();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	private static void get(ConfigItem item, Properties props, String name)
+	{
+		item.enabled = Boolean.parseBoolean(props.getProperty(name + ".enabled", "false"));
+		item.outputDir = toFile(props.getProperty(name + ".outputDir", ""));
+		item.namespace = props.getProperty(name + ".namespace", "");
+	}
+	
+	private static void set(Properties props, String name, ConfigItem item)
+	{
+		props.setProperty(name + ".enabled", Boolean.toString(item.enabled));
+		props.setProperty(name + ".outputDir", toString(item.outputDir));
+		props.setProperty(name + ".namespace", item.namespace);
+	}
+	
+	private static String toString(File file)
+	{
+		if (file == null)
+			return "";
+		try
+		{
+			return file.getCanonicalPath();
+		}
+		catch (IOException e)
+		{
+			return file.getAbsolutePath();
+		}
+	}
+	
+	private static File toFile(String prop)
+	{
+		prop = prop.trim();
+		if (prop.isEmpty())
+			return null;
+		
+		return new File(prop);
 	}
 	
 	private static boolean askForConfigData(Config cfg)
@@ -85,8 +204,9 @@ public class CDBGen
 		ok.setText("Generate");
 		
 		shell.setText("c-db-gen config");
+		shell.setDefaultButton(ok);
 		shell.pack();
-		shell.setSize(300, shell.getSize().y);
+		shell.setSize(500, shell.getSize().y);
 		shell.open();
 		while (!shell.isDisposed())
 		{
@@ -121,27 +241,28 @@ public class CDBGen
 		
 		for (Struct struct : structs)
 		{
-			if (cfg.palm.enabled && cfg.palm.outputDir != null)
-				processOutputer(cfg.recFile, new PalmOutputer(), struct, cfg.palm.outputDir);
-			if (cfg.sqlite.enabled && cfg.sqlite.outputDir != null)
-				processOutputer(cfg.recFile, new SqliteOutputer(), struct, cfg.sqlite.outputDir);
+			processOutputer(cfg.recFile, cfg.sqlite, struct, structs);
+			processOutputer(cfg.recFile, cfg.palm, struct, structs);
+			processOutputer(cfg.recFile, cfg.palmConduit, struct, structs);
 		}
 	}
 	
-	private static void processOutputer(File rec, Outputer outputer, Struct struct, File dir)
+	private static void processOutputer(File rec, ConfigItem item, Struct struct, List<Struct> structs)
 	{
+		if (!item.enabled)
+			return;
 		try
 		{
-			outputer.output(struct, dir);
+			item.outputer.output(struct, item.namespace, item.outputDir, structs);
 		}
 		catch (OutputerException e)
 		{
-			System.err.println(rec.getName() + " : [" + outputer.getName() + "] Error creating files:");
+			System.err.println(rec.getName() + " : [" + item.outputer.getName() + "] Error creating files:");
 			e.printStackTrace();
 		}
 		catch (OutputerValidationException e)
 		{
-			System.out.println(rec.getName() + " : [" + outputer.getName() + "] " + e.getMessage());
+			System.out.println(rec.getName() + " : [" + item.outputer.getName() + "] " + e.getMessage());
 		}
 	}
 }

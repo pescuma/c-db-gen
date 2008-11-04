@@ -1,0 +1,106 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( isString $var )$utils.isString($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( type $var )$utils.typeName($var)#end
+#macro( sizeOf $var )$utils.sizeOf($var)#end
+#set( $class = "${struct.name}Record" )
+#set( $fileDefine = "__${utils.toDefine($class)}_H__" )
+#ifndef $fileDefine
+# define $fileDefine
+
+\#include <windows.h>
+\#include <tchar.h>
+#if( $utils.hasList($struct) )
+\#include <vector>
+#end
+\#include <CPCustomRecord.h>
+#if( $utils.hasString($struct) )
+\#include <string>
+#end
+#if( $utils.hasString($struct) )
+
+namespace std {
+typedef basic_string<TCHAR, char_traits<TCHAR>, allocator<TCHAR> > tstring;
+}
+#end
+#if( $utils.hasList($struct) )
+
+#foreach( $field in $struct.fields )
+#if ( $field.list and not $field.primitive )
+\#include "#type($field)Record.h"
+#end
+#end
+#end
+#if( $namespace != '' )
+
+
+namespace $namespace
+{
+#end
+#if( $utils.hasFlags($struct) )
+
+
+#set( $id = 1 )
+#foreach( $field in $struct.fields )
+#foreach( $flag in $field.flags )
+#define ${utils.toDefine($class)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)} $id
+#set( $id = 2 * $id )
+#end
+#end
+#end
+
+
+
+struct ${struct.name}
+{
+	${struct.name}();
+	void Reset();
+
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	std::vector<#type($field)> ${field.name};
+#elseif( not $field.primitive )
+	DWORD ${field.name}ID;
+#else
+	#fieldDecl($field);
+#end
+#end
+};
+
+
+class $class : public CPCustomRecord
+{
+public:
+
+	${class}();
+    ${class}(CPalmRecord &rec);
+	virtual ~${class}();
+
+	virtual void Reset(void);
+
+    DWORD uniqueID;
+	DWORD category;
+	BOOL secret;
+	
+	${struct.name} data;
+	
+	void Read(${struct.name} &data, BYTE *pBuf, size_t size);
+    virtual long ConvertFromGeneric(CPalmRecord &rec, BOOL bClearAttributes=FALSE);
+    virtual long ConvertToGeneric(CPalmRecord &rec, BOOL bClearAttributes=FALSE);
+#if( $utils.hasString($struct) )
+
+private:
+	void fromString(std::tstring &out, char *in, size_t inSize);
+#end
+};
+#if( $namespace != '' )
+
+
+
+}
+#end
+
+
+#endif // $fileDefine

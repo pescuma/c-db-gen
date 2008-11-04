@@ -2,6 +2,8 @@ package org.pescuma.cdbgen;
 
 import static java.lang.Character.*;
 
+import java.util.List;
+
 public class Utils
 {
 	public static String firstUpper(String str)
@@ -83,6 +85,26 @@ public class Utils
 		return false;
 	}
 	
+	public static boolean hasReference(Struct s)
+	{
+		for (StructField f : s.fields)
+		{
+			if (!f.isList() && f.typeName != null)
+				return true;
+		}
+		return false;
+	}
+	
+	public static boolean hasString(Struct s)
+	{
+		for (StructField f : s.fields)
+		{
+			if (f.isString())
+				return true;
+		}
+		return false;
+	}
+	
 	public static boolean hasFlags(Struct s)
 	{
 		for (StructField f : s.fields)
@@ -91,5 +113,13 @@ public class Utils
 				return true;
 		}
 		return false;
+	}
+	
+	public static Struct findStruct(List<Struct> structs, String name)
+	{
+		for (Struct s : structs)
+			if (name.equals(s.name))
+				return s;
+		return null;
 	}
 }
