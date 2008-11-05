@@ -8,6 +8,7 @@
 # define $fileDefine
 
 \#include <PalmOS.h>
+\#include <string.h>
 
 \#include "helpers/DB.h"
 
@@ -34,6 +35,22 @@ struct $struct.name
 	#type($field) $field.name#if( $field.array > 0)[$field.array]#end;
 #end
 #end
+
+	${struct.name}()
+	{
+#foreach( $field in $struct.fields )
+#if( $field.list )
+#elseif( not $field.primitive )
+		${field.name}ID = 0;
+#elseif( $field.array > 0 )
+		MemSet(${field.name}, 0, ${field.array} * sizeof(#type($field))); 
+#elseif( $field.type.name() == 'Boolean' )
+		$field.name = false;
+#else
+		$field.name = 0;
+#end
+#end
+	}
 };
 
 

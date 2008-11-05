@@ -88,6 +88,7 @@ public:
 	
 	
 	static void createTable(sqlite::Database *db);
+	static void dropTable(sqlite::Database *db);
 	
 	static $struct.name query(sqlite::Database *db, sqlite3_int64 id);
 	static std::vector<$struct.name> queryAll(sqlite::Database *db);

@@ -50,11 +50,6 @@ public class PalmConduitUtils extends Utils
 		return typeName(f) + " " + f.name;
 	}
 	
-	public static String asd(String s)
-	{
-		return "aaaa";
-	}
-	
 	public static String sizeOf(Struct struct)
 	{
 		int ret = 0;
@@ -72,7 +67,7 @@ public class PalmConduitUtils extends Utils
 			switch (field.type)
 			{
 				case Boolean:
-					ret += 1 * max(1, field.array);
+					ret += 2 * max(1, field.array);
 					break;
 				case Char:
 					ret += 1 * max(1, field.array);

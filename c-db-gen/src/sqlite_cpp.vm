@@ -153,6 +153,20 @@ void ${struct.name}::createTable(sqlite::Database *db)
 }
 
 
+void ${struct.name}::dropTable(sqlite::Database *db)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+
+	db->execute("DROP TABLE IF EXISTS ${struct.name}");
+#foreach( $field in $struct.fields )
+#if( $field.list )
+	db->execute("DROP TABLE IF EXISTS ${struct.name}_#type($field)");
+#end
+#end
+}
+
+
 ${struct.name} ${struct.name}::query(sqlite::Database *db, sqlite3_int64 id)
 {
 	if (db == NULL)

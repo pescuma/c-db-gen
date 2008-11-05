@@ -143,7 +143,7 @@ void ${class}::Read(${struct.name} &data, BYTE *pBuf, size_t size)
 	pBuf += $field.array * sizeof(#type($field));
 #elseif( $field.type.name() == 'Boolean' )
 	data.$field.name = (*pBuf != 0);
-	pBuf++;
+	pBuf += 2;
 #elseif( $field.type.name() == 'UInt8' )
 	data.$field.name = *pBuf;
 	pBuf++;
