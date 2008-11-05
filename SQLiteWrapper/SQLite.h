@@ -2,8 +2,11 @@
 # define __SQLITE_H__
 
 #include <windows.h>
-#include <string>
 #include <sqlite3.h>
+#include <string>
+namespace std {
+typedef basic_string<TCHAR, char_traits<TCHAR>, allocator<TCHAR> > tstring;
+}
 
 
 namespace sqlite {
@@ -66,6 +69,7 @@ namespace sqlite {
 		void getColumn(int column, double *ret);
 		void getColumn(int column, TCHAR *ret, size_t size);
 		void getColumn(int column, TCHAR **ret); /// The caller have to free the returned string in ret
+		void getColumn(int column, std::tstring *ret);
 		void getColumn(int column, void *ret, size_t size);
 		void getColumn(int column, void **ret, size_t *size); /// The caller have to free the returned pointer in ret
 

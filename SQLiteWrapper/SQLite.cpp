@@ -24,15 +24,13 @@ namespace sqlite {
 			if (size <= 0)
 				throw DatabaseException(SQLITE_NOMEM, _T("Could not convert string to WCHAR"));
 
-			WCHAR *tmp = (WCHAR *) malloc(size * sizeof(WCHAR));
+			scope<WCHAR *> tmp = (WCHAR *) malloc(size * sizeof(WCHAR));
 			if (tmp == NULL)
 				throw DatabaseException(SQLITE_NOMEM, _T("malloc returned NULL"));
 
 			MultiByteToWideChar(CP_ACP, 0, str, -1, tmp, size);
 
 			init(tmp);
-
-			free(tmp);
 		}
 
 
@@ -472,6 +470,20 @@ namespace sqlite {
 		}
 
 		*ret = Utf8ToTchar(txt).detach();
+	}
+
+
+	void Statement::getColumn(int column, std::tstring *ret)
+	{
+		const char *txt = (const char *) sqlite3_column_text(stmt, column);
+		if (txt == NULL)
+		{
+			checkError();
+			*ret = _T("");
+			return;
+		}
+
+		*ret = Utf8ToTchar(txt);
 	}
 
 
