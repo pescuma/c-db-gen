@@ -47,81 +47,22 @@ public class RecParser
 					continue;
 				}
 				
-				m = startStruct.matcher(line);
-				if (m.matches())
+				if (isStartStruct(line))
 					continue;
 				
-				m = field.matcher(line);
-				if (m.matches())
-				{
-					StructField f = new StructField();
-					f.name = m.group(2);
-					f.type = StructField.Type.valueOf(m.group(1));
-					String arr = m.group(4);
-					if (arr == null)
-						f.array = 0;
-					else
-						f.array = Integer.parseInt(arr);
-					cur.fields.add(f);
+				if (handleField(line, cur))
 					continue;
-				}
 				
-				m = flagField.matcher(line);
-				if (m.matches())
-				{
-					StructField f = new StructField();
-					f.name = m.group(2);
-					f.type = StructField.Type.valueOf(m.group(1));
-					String[] flags = m.group(3).split("\\|");
-					for (int i = 0; i < flags.length; i++)
-					{
-						String fn = flags[i].trim();
-						if (!fn.isEmpty())
-							f.flags.add(fn);
-					}
-					cur.fields.add(f);
+				if (handleFlagField(line, cur))
 					continue;
-				}
 				
-				m = listField.matcher(line);
-				if (m.matches())
-				{
-					StructField f = new StructField();
-					f.name = m.group(2);
-					try
-					{
-						f.type = StructField.Type.valueOf(m.group(1));
-					}
-					catch (IllegalArgumentException e)
-					{
-						f.type = null;
-						f.typeName = m.group(1);
-					}
-					f.list = true;
-					cur.fields.add(f);
+				if (handleListField(line, cur))
 					continue;
-				}
 				
-				m = referenceField.matcher(line);
-				if (m.matches())
-				{
-					StructField f = new StructField();
-					f.name = m.group(2);
-					try
-					{
-						f.type = StructField.Type.valueOf(m.group(1));
-					}
-					catch (IllegalArgumentException e)
-					{
-						f.type = null;
-						f.typeName = m.group(1);
-					}
-					cur.fields.add(f);
+				if (handleReferenceField(line, cur))
 					continue;
-				}
 				
-				m = endStruct.matcher(line);
-				if (m.matches())
+				if (isEndStruct(line))
 				{
 					cur = null;
 					continue;
@@ -141,6 +82,97 @@ public class RecParser
 					throw new IllegalArgumentException("Unknown type: " + f.typeName);
 		
 		return structs;
+	}
+	
+	private boolean isStartStruct(String line)
+	{
+		return startStruct.matcher(line).matches();
+	}
+	
+	private boolean isEndStruct(String line)
+	{
+		return endStruct.matcher(line).matches();
+	}
+	
+	private boolean handleReferenceField(String line, Struct cur)
+	{
+		Matcher m = referenceField.matcher(line);
+		if (!m.matches())
+			return false;
+		
+		StructField f = new StructField();
+		f.name = m.group(2);
+		try
+		{
+			f.type = StructField.Type.valueOf(m.group(1));
+		}
+		catch (IllegalArgumentException e)
+		{
+			f.type = null;
+			f.typeName = m.group(1);
+		}
+		cur.fields.add(f);
+		return true;
+	}
+	
+	private boolean handleListField(String line, Struct cur)
+	{
+		Matcher m = listField.matcher(line);
+		if (!m.matches())
+			return false;
+		
+		StructField f = new StructField();
+		f.name = m.group(2);
+		try
+		{
+			f.type = StructField.Type.valueOf(m.group(1));
+		}
+		catch (IllegalArgumentException e)
+		{
+			f.type = null;
+			f.typeName = m.group(1);
+		}
+		f.list = true;
+		cur.fields.add(f);
+		return true;
+	}
+	
+	private boolean handleFlagField(String line, Struct cur)
+	{
+		Matcher m = flagField.matcher(line);
+		if (!m.matches())
+			return false;
+		
+		StructField f = new StructField();
+		f.name = m.group(2);
+		f.type = StructField.Type.valueOf(m.group(1));
+		String[] flags = m.group(3).split("\\|");
+		for (int i = 0; i < flags.length; i++)
+		{
+			String fn = flags[i].trim();
+			if (!fn.isEmpty())
+				f.flags.add(fn);
+		}
+		cur.fields.add(f);
+		return true;
+	}
+	
+	private boolean handleField(String line, Struct cur)
+	{
+		Matcher m = field.matcher(line);
+		if (!m.matches())
+			return false;
+		
+		StructField f = new StructField();
+		f.name = m.group(2);
+		f.type = StructField.Type.valueOf(m.group(1));
+		String arr = m.group(4);
+		if (arr == null)
+			f.array = 0;
+		else
+			f.array = Integer.parseInt(arr);
+		cur.fields.add(f);
+		return true;
 	}
 	
 }

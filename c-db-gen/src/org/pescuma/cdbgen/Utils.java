@@ -85,6 +85,16 @@ public class Utils
 		return false;
 	}
 	
+	public static boolean hasNotList(Struct s)
+	{
+		for (StructField f : s.fields)
+		{
+			if (!f.isList())
+				return true;
+		}
+		return false;
+	}
+	
 	public static boolean hasReference(Struct s)
 	{
 		for (StructField f : s.fields)

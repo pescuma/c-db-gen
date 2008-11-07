@@ -89,12 +89,12 @@ std::vector<#type($field)> & ${struct.name}::${field.name}()
 	if (!${field.name}Initialized)
 	{
 		sqlite::Statement stmt = db->prepare(
-			"SELECT #type($field).* "
-			"FROM ${struct.name} "
-				"JOIN ${struct.name}_#type($field) ON (${struct.name}.id == ${struct.name}_#type($field).${struct.name}) "
-				"JOIN #type($field) ON (${struct.name}_#type($field).#type($field) == #type($field).id) "
-			"WHERE ${struct.name}.id = ? "
-			"ORDER BY #type($field).id"
+			_T("SELECT #type($field).* ")
+			_T("FROM ${struct.name} ")
+				_T("JOIN ${struct.name}_#type($field) ON (${struct.name}.id == ${struct.name}_#type($field).${struct.name}) ")
+				_T("JOIN #type($field) ON (${struct.name}_#type($field).#type($field) == #type($field).id) ")
+			_T("WHERE ${struct.name}.id = ? ")
+			_T("ORDER BY #type($field).id")
 		);
 
 		stmt.bind(1, id);
@@ -172,7 +172,7 @@ ${struct.name} ${struct.name}::query(sqlite::Database *db, sqlite3_int64 id)
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
 
-	sqlite::Statement stmt = db->prepare("SELECT * FROM ${struct.name} WHERE id = ?");
+	sqlite::Statement stmt = db->prepare(_T("SELECT * FROM ${struct.name} WHERE id = ?"));
 
 	stmt.bind(1, id);
 
@@ -190,7 +190,7 @@ std::vector<$struct.name> queryAll(sqlite::Database *db)
 
 	std::vector<$struct.name> ret;
 
-	sqlite::Statement stmt = db->prepare("SELECT * FROM $struct.name ORDER BY id");
+	sqlite::Statement stmt = db->prepare(_T("SELECT * FROM $struct.name ORDER BY id"));
 	while (stmt.step())
 		ret.push_back(${struct.name}(db, &stmt));
 
@@ -198,6 +198,58 @@ std::vector<$struct.name> queryAll(sqlite::Database *db)
 }
 
 
+#if( $utils.hasNotList($struct) ) 
+std::vector<$struct.name> queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *p#fu($field.name)#end#end)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+
+	std::vector<$struct.name> ret;
+	
+	std::tstring sql = _T("SELECT * FROM $struct.name ");
+	
+	bool hasWhere = false;
+#foreach( $field in $struct.fields )
+#if ( not $field.list )
+	if (p#fu($field.name) != NULL)
+	{
+		sql += ( hasWhere ? _T("AND ") : _T("WHERE ") );
+		sql += "$field.name == ? ";
+		hasWhere = true;
+	}
+#end
+#end
+	
+	sql += _T("ORDER BY id");
+	
+	sqlite::Statement stmt = db->prepare(sql.c_str());
+	
+	int bind = 1;
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+	if (p#fu($field.name) != NULL)
+#if( not $field.primitive )
+		stmt.bind(bind++, p#fu($field.name)->id);
+#elseif( $field.string )
+		stmt.bind(bind++, p#fu($field.name)->c_str());
+#elseif( $field.type.name() == 'Boolean' )
+		stmt.bind(bind++, *p#fu($field.name) ? 1 : 0);
+#elseif( $field.type.name() == 'Int32' )
+		stmt.bind(bind++, *p#fu($field.name));
+#else
+		stmt.bind(bind++, (int) *p#fu($field.name));
+#end
+#end
+#end
+	
+	while (stmt.step())
+		ret.push_back(${struct.name}(db, &stmt));
+
+	return ret;
+}
+
+
+#end
 void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 {
 	if (db == NULL)
@@ -209,7 +261,7 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	sqlite::Transaction trans(db);
 
 	{
-		sqlite::Statement stmt = db->prepare("INSERT INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)");
+		sqlite::Statement stmt = db->prepare(_T("INSERT INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)"));
 
 		if (update)
 			stmt.bind(1, obj->id);
@@ -242,13 +294,13 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	if (obj->${field.name}Initialized) 
 	{
 		{
-			sqlite::Statement stmt = db->prepare("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?");
+			sqlite::Statement stmt = db->prepare(_T("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?"));
 			stmt.bind(1, obj->id);
 			stmt.execute();
 		}
 
 		{
-			sqlite::Statement stmt = db->prepare("INSERT INTO ${struct.name}_#type($field) VALUES (?, ?)");
+			sqlite::Statement stmt = db->prepare(_T("INSERT INTO ${struct.name}_#type($field) VALUES (?, ?)"));
 			stmt.bind(1, obj->id);
 
 			for(std::vector<#type($field)>::iterator it = obj->${field.name}List.begin(); it != obj->${field.name}List.end(); it++)

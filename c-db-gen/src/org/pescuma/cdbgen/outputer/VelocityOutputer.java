@@ -37,7 +37,7 @@ public abstract class VelocityOutputer implements Outputer
 				File file = files[i];
 				File parentFile = file.getParentFile();
 				if (!parentFile.exists() && !parentFile.mkdirs())
-					throw new IllegalStateException("Could not create the output path");
+					throw new OutputerException("Could not create the output path");
 				
 				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), getEncoding()));
 				try

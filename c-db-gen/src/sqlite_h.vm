@@ -92,6 +92,9 @@ public:
 	
 	static $struct.name query(sqlite::Database *db, sqlite3_int64 id);
 	static std::vector<$struct.name> queryAll(sqlite::Database *db);
+#if( $utils.hasNotList($struct) ) 
+	static std::vector<$struct.name> queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *$field.name#end#end);
+#end
 	
 	static void store(sqlite::Database *db, ${struct.name} *obj);
 	
