@@ -35,6 +35,8 @@ public class PalmConduitUtils extends Utils
 				return "int";
 			case UInt32:
 				return "unsigned int";
+			case DateTime:
+				return "time_t";
 		}
 		throw new IllegalStateException();
 	}
@@ -85,10 +87,13 @@ public class PalmConduitUtils extends Utils
 					ret += 2 * max(1, field.array);
 					break;
 				case Int32:
-					ret += 3 * max(1, field.array);
+					ret += 4 * max(1, field.array);
 					break;
 				case UInt32:
-					ret += 3 * max(1, field.array);
+					ret += 4 * max(1, field.array);
+					break;
+				case DateTime:
+					ret += 4 * max(1, field.array);
 					break;
 			}
 		}

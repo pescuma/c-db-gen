@@ -12,6 +12,9 @@
 
 \#include <windows.h>
 \#include <tchar.h>
+#if( $utils.hasDateTime($struct) )
+\#include <time.h>
+#end
 #if( $utils.hasList($struct) )
 \#include <vector>
 #end

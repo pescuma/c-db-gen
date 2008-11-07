@@ -138,9 +138,8 @@ void ${class}::Read(${struct.name} &data, BYTE *pBuf, size_t size)
 	fromString(data.${field.name}, (char *) pBuf, $field.array);
 	pBuf += $field.array;
 #elseif( $field.array > 0 )
-	ERR!!! // TODO
 	memmove(data.${field.name}, pBuf, $field.array * sizeof(#type($field))); 
-	pBuf += $field.array * sizeof(#type($field));
+	pBuf += $field.array * $utils.sizeof($field);
 #elseif( $field.type.name() == 'Boolean' )
 	data.$field.name = (*pBuf != 0);
 	pBuf += 2;
@@ -161,6 +160,9 @@ void ${class}::Read(${struct.name} &data, BYTE *pBuf, size_t size)
 	pBuf += 4;
 #elseif( $field.type.name() == 'Int32' )
 	data.$field.name = (#type($field)) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf);
+	pBuf += 4;
+#elseif( $field.type.name() == 'DateTime' )
+	data.$field.name = ((#type($field)) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf)) - 2082844799; // 1904-01-01
 	pBuf += 4;
 #end
 #end

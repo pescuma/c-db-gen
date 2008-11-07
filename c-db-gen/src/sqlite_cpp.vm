@@ -26,8 +26,7 @@ ${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)
 #foreach( $field in $struct.fields )
 #if( not $field.list )
 #if( not $field.primitive )
-	sqlite3_int64 ${field.name}ID;
-	stmt->getColumn($i, &${field.name}ID);
+	sqlite3_int64 ${field.name}ID = stmt->getColumnAsInt64($i);
 	if (${field.name}ID > 0)
 		$field.name = #type($field)::query(db, ${field.name}ID);
 	else
@@ -38,6 +37,8 @@ ${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)
 	$field.name = (stmt->getColumnAsInt($i) != 0);
 #elseif( $field.type.name() == 'Int32' )
 	$field.name = stmt->getColumnAsInt($i);
+#elseif( $field.type.name() == 'DateTime' )
+	$field.name = (#type($field)) stmt->getColumnAsInt64($i);
 #else
 	$field.name = (#type($field)) stmt->getColumnAsInt($i);
 #end
@@ -124,29 +125,30 @@ void ${struct.name}::createTable(sqlite::Database *db)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
 
 	db->execute(
-		"CREATE TABLE IF NOT EXISTS ${struct.name} ("
-			"id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
+		_T("CREATE TABLE IF NOT EXISTS ${struct.name} (")
+			_T("id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
 #if( not $field.list )
 #if( not $field.primitive )
-, "
-			"${field.name}ID INTEGER#elseif( $field.string )
-, "
-			"$field.name VARCHAR#else
-, "
-			"$field.name INTEGER#end
+, ")
+			_T("${field.name}ID INTEGER#elseif( $field.string )
+, ")
+			_T("$field.name VARCHAR#else
+, ")
+			_T("$field.name INTEGER#end
 #end
 #end
-"
-		")"
+")
+		_T(")")
 	);
 #foreach( $field in $struct.fields )
 #if( $field.list )
 	
 	db->execute(
-		"CREATE TABLE IF NOT EXISTS ${struct.name}_#type($field) ("
-			"${struct.name} INTEGER, "
-			"#type($field) INTEGER"
-		")"
+		_T("CREATE TABLE IF NOT EXISTS ${struct.name}_#type($field) (")
+			_T("${struct.name} INTEGER, ")
+			_T("#type($field) INTEGER, ")
+			_T("PRIMARY KEY (${struct.name}, #type($field)) ")
+		_T(")")
 	);
 #end
 #end
@@ -236,6 +238,8 @@ std::vector<$struct.name> queryAll(sqlite::Database *db#foreach( $field in $stru
 		stmt.bind(bind++, *p#fu($field.name) ? 1 : 0);
 #elseif( $field.type.name() == 'Int32' )
 		stmt.bind(bind++, *p#fu($field.name));
+#elseif( $field.type.name() == 'DateTime' )
+		stmt.bind(bind++, (sqlite3_int64) *p#fu($field.name));
 #else
 		stmt.bind(bind++, (int) *p#fu($field.name));
 #end
@@ -261,7 +265,7 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	sqlite::Transaction trans(db);
 
 	{
-		sqlite::Statement stmt = db->prepare(_T("INSERT INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)"));
+		sqlite::Statement stmt = db->prepare(_T("INSERT OR REPLACE INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)"));
 
 		if (update)
 			stmt.bind(1, obj->id);
@@ -277,6 +281,8 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 		stmt.bind($i, obj->$field.name ? 1 : 0);
 #elseif( $field.type.name() == 'Int32' )
 		stmt.bind($i, obj->$field.name);
+#elseif( $field.type.name() == 'DateTime' )
+		stmt.bind($i, (sqlite3_int64) obj->$field.name);
 #else
 		stmt.bind($i, (int) obj->$field.name);
 #end
@@ -300,8 +306,7 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 		}
 
 		{
-			sqlite::Statement stmt = db->prepare(_T("INSERT INTO ${struct.name}_#type($field) VALUES (?, ?)"));
-			stmt.bind(1, obj->id);
+			sqlite::Statement stmt = db->prepare(_T("INSERT OR REPLACE INTO ${struct.name}_#type($field) VALUES (?, ?)"));
 
 			for(std::vector<#type($field)>::iterator it = obj->${field.name}List.begin(); it != obj->${field.name}List.end(); it++)
 			{
@@ -309,7 +314,9 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 
 				if (ref.id < 0)
 					throw sqlite::DatabaseException(SQLITE_ERROR, "#type($field) is not stored");
-
+				
+				stmt.reset();
+				stmt.bind(1, obj->id);
 				stmt.bind(2, ref.id);
 				stmt.execute();
 			}

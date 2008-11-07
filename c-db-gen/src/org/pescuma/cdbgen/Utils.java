@@ -1,6 +1,7 @@
 package org.pescuma.cdbgen;
 
 import static java.lang.Character.*;
+import static org.pescuma.cdbgen.StructField.Type.*;
 
 import java.util.List;
 
@@ -110,6 +111,16 @@ public class Utils
 		for (StructField f : s.fields)
 		{
 			if (f.isString())
+				return true;
+		}
+		return false;
+	}
+	
+	public static boolean hasDateTime(Struct s)
+	{
+		for (StructField f : s.fields)
+		{
+			if (f.type == DateTime)
 				return true;
 		}
 		return false;

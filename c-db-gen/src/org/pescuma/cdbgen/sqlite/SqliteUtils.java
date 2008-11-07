@@ -31,6 +31,8 @@ public class SqliteUtils extends Utils
 				return "int";
 			case UInt32:
 				return "unsigned int";
+			case DateTime:
+				return "time_t";
 		}
 		throw new IllegalStateException();
 	}
