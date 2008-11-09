@@ -75,6 +75,7 @@ namespace sqlite {
 
 		// Helpers
 		int getColumnAsInt(int column);
+		sqlite3_int64 getColumnAsInt64(int column);
 		double getColumnAsDouble(int column);
 		TCHAR *getColumnAsString(int column); /// The caller have to free the returned string
 		

@@ -405,6 +405,14 @@ namespace sqlite {
 	}
 
 
+	sqlite3_int64 Statement::getColumnAsInt64(int column)
+	{
+		sqlite3_int64 ret;
+		getColumn(column, &ret);
+		return ret;
+	}
+
+
 	double Statement::getColumnAsDouble(int column)
 	{
 		double ret;
