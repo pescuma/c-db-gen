@@ -17,7 +17,15 @@ namespace $namespace
 
 
 
-${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)
+${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)#set( $i = 0 )#foreach( $field in $struct.fields )
+#if( not $field.list and not $field.primitive )
+#if( $i == 0 )
+ : ${field.name}(db)#else
+, ${field.name}(db)#end
+#set($i = $i + 1)
+#end
+#end
+
 {
 	this->db = db;
 
@@ -56,7 +64,15 @@ ${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)
 }
 
 
-${struct.name}::${struct.name}(sqlite::Database *db)
+${struct.name}::${struct.name}(sqlite::Database *db)#set( $i = 0 )#foreach( $field in $struct.fields )
+#if( not $field.list and not $field.primitive )
+#if( $i == 0 )
+ : ${field.name}(db)#else
+, ${field.name}(db)#end
+#set($i = $i + 1)
+#end
+#end
+
 {
 	this->db = db;
 	
@@ -185,7 +201,7 @@ ${struct.name} ${struct.name}::query(sqlite::Database *db, sqlite3_int64 id)
 }	
 
 
-std::vector<$struct.name> queryAll(sqlite::Database *db)
+std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db)
 {
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
@@ -201,7 +217,7 @@ std::vector<$struct.name> queryAll(sqlite::Database *db)
 
 
 #if( $utils.hasNotList($struct) ) 
-std::vector<$struct.name> queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *p#fu($field.name)#end#end)
+std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *p#fu($field.name)#end#end)
 {
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
