@@ -66,6 +66,8 @@ private:
 #end
 #end
 	
+	static sqlite3_int64 internalStore(sqlite::Database *db, ${struct.name} *obj);
+	
 public:
 	
 	sqlite3_int64 id;
@@ -88,6 +90,7 @@ public:
 #end
 	
 	void store();
+	void remove();
 	
 	
 	static void createTable(sqlite::Database *db);
@@ -100,6 +103,7 @@ public:
 #end
 	
 	static void store(sqlite::Database *db, ${struct.name} *obj);
+	static void remove(sqlite::Database *db, ${struct.name} *obj);
 	
 };
 #if( $namespace != '' )

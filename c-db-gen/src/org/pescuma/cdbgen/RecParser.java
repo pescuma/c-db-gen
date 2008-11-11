@@ -17,8 +17,9 @@ public class RecParser
 	private static final String type = "Char|Boolean|Int8|UInt8|Int16|UInt16|Int32|UInt32";
 	private static final Pattern field = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*(\\[([0-9]+)\\])?\\s*;\\s*$");
 	private static final Pattern flagField = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*((\\|\\s*" + var + "\\s*)+);\\s*$");
-	private static final Pattern listField = Pattern.compile("^\\s*List<(" + var + ")>\\s+(" + var + ")\\s*;\\s*$");
+	private static final Pattern listField = Pattern.compile("^\\s*List<\\s*(" + var + ")\\s*>\\s+(" + var + ")\\s*;\\s*$");
 	private static final Pattern referenceField = Pattern.compile("^\\s*(" + var + ")\\s+(" + var + ")\\s*;\\s*$");
+	private static final Pattern index = Pattern.compile("^\\s*INDEX\\s*\\((\\s*" + var + "\\s*(,\\s*" + var + "\\s*)*)\\)\\s*;\\s*$");
 	private static final Pattern endStruct = Pattern.compile("^\\s*\\}\\s*;?\\s*$");
 	
 	public List<Struct> parse(File file) throws IOException
@@ -62,6 +63,9 @@ public class RecParser
 				if (handleReferenceField(line, cur))
 					continue;
 				
+				if (handleIndex(line, cur))
+					continue;
+				
 				if (isEndStruct(line))
 				{
 					cur = null;
@@ -77,9 +81,20 @@ public class RecParser
 		}
 		
 		for (Struct s : structs)
+		{
 			for (StructField f : s.fields)
+			{
 				if (f.typeName != null && Utils.findStruct(structs, f.typeName) == null)
 					throw new IllegalArgumentException("Unknown type: " + f.typeName);
+			}
+			for (StructIndex i : s.indexes)
+			{
+				for (String f : i.fields)
+					if (Utils.findField(s, f) == null)
+						throw new IllegalArgumentException("Unknown field: " + f);
+			}
+			
+		}
 		
 		return structs;
 	}
@@ -92,6 +107,25 @@ public class RecParser
 	private boolean isEndStruct(String line)
 	{
 		return endStruct.matcher(line).matches();
+	}
+	
+	private boolean handleIndex(String line, Struct cur)
+	{
+		Matcher m = index.matcher(line);
+		if (!m.matches())
+			return false;
+		
+		StructIndex i = new StructIndex();
+		String[] fs = m.group(1).split(",");
+		for (int j = 0; j < fs.length; j++)
+		{
+			String f = fs[j];
+			f = f.trim();
+			if (!f.isEmpty())
+				i.fields.add(f);
+		}
+		cur.indexes.add(i);
+		return true;
 	}
 	
 	private boolean handleReferenceField(String line, Struct cur)

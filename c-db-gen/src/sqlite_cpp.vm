@@ -134,6 +134,12 @@ void ${struct.name}::store()
 }
 
 
+void ${struct.name}::remove()
+{
+	delete(db, this);
+}
+
+
 
 void ${struct.name}::createTable(sqlite::Database *db)
 {
@@ -168,6 +174,12 @@ void ${struct.name}::createTable(sqlite::Database *db)
 	);
 #end
 #end
+#foreach( $index in $struct.indexes )
+
+	db->execute(_T("CREATE INDEX IF NOT EXISTS INDEX_${struct.name}#foreach( $field in $index.fields )_$field#end ON ${struct.name}(#set( $i = 0 )#foreach( $field in $index.fields )
+#if( $i > 0), #end${field}#set( $i = $i + 1 )
+#end)"));
+#end
 }
 
 
@@ -175,13 +187,18 @@ void ${struct.name}::dropTable(sqlite::Database *db)
 {
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+#foreach( $index in $struct.indexes )
 
-	db->execute("DROP TABLE IF EXISTS ${struct.name}");
+	db->execute(_T("DROP INDEX IF EXISTS INDEX_${struct.name}#foreach( $f in $index.fields )_$f#end"));
+#end
 #foreach( $field in $struct.fields )
 #if( $field.list )
-	db->execute("DROP TABLE IF EXISTS ${struct.name}_#type($field)");
+	
+	db->execute(_T("DROP TABLE IF EXISTS ${struct.name}_#type($field)"));
 #end
 #end
+
+	db->execute(_T("DROP TABLE IF EXISTS ${struct.name}"));
 }
 
 
@@ -275,10 +292,25 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
 
+	if (db->isAutoCommitEnabled())
+	{
+		sqlite::Transaction trans(db);
+		sqlite3_int64 id = internalStore(db, obj);
+		trans.commit();
+		
+		obj->id = id;
+	}
+	else
+	{
+		obj->id = internalStore(db, obj);
+	}
+}
+
+
+sqlite3_int64 ${struct.name}::internalStore(sqlite::Database *db, ${struct.name} *obj)
+{
 	bool update = (obj->id > 0);
 	sqlite3_int64 id;
-	
-	sqlite::Transaction trans(db);
 
 	{
 		sqlite::Statement stmt = db->prepare(_T("INSERT OR REPLACE INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)"));
@@ -309,7 +341,10 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 		stmt.execute();
 
 		id = db->getLastInsertRowID();
-	}	
+	}
+	
+	if (update && id != obj->id)
+		throw sqlite::DatabaseException(SQLITE_ERROR, "Wrong id");
 #foreach( $field in $struct.fields )
 #if( $field.list )
 
@@ -317,7 +352,7 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	{
 		{
 			sqlite::Statement stmt = db->prepare(_T("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?"));
-			stmt.bind(1, obj->id);
+			stmt.bind(1, id);
 			stmt.execute();
 		}
 
@@ -332,7 +367,7 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 					throw sqlite::DatabaseException(SQLITE_ERROR, "#type($field) is not stored");
 				
 				stmt.reset();
-				stmt.bind(1, obj->id);
+				stmt.bind(1, id);
 				stmt.bind(2, ref.id);
 				stmt.execute();
 			}
@@ -340,11 +375,25 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	}
 #end
 #end
-
-	trans.commit();
 	
-	if (!update)
-		obj->id = id;
+	return id;
+}
+
+
+void ${struct.name}::remove(sqlite::Database *db, ${struct.name} *obj)
+{
+	if (db == NULL)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
+	if (obj->id <= 0)
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Object is not in database"));
+
+	{
+		sqlite::Statement stmt = db->prepare(_T("DELETE FROM ${struct.name} WHERE id == ?"));
+		stmt.bind(1, obj->id);
+		stmt.execute();
+	}
+
+	obj->id = -1;
 }
 #if( $namespace != '' )
 

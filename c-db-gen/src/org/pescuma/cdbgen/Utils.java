@@ -143,4 +143,12 @@ public class Utils
 				return s;
 		return null;
 	}
+	
+	public static Object findField(Struct struct, String fieldName)
+	{
+		for (StructField field : struct.fields)
+			if (field.name.equals(fieldName))
+				return field;
+		return null;
+	}
 }
