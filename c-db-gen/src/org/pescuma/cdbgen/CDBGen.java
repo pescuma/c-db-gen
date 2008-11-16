@@ -23,6 +23,7 @@ import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.palm.PalmOutputer;
 import org.pescuma.cdbgen.palmconduit.PalmConduitOutputer;
 import org.pescuma.cdbgen.sqlite.SqliteOutputer;
+import org.pescuma.cdbgen.vb6.VB6Outputer;
 import org.pescuma.cdbgen.velocity.VelocityLogger;
 import org.pescuma.cdbgen.velocity.VelocityResourceLoader;
 import org.pescuma.jfg.gui.swt.JfgFormComposite;
@@ -54,6 +55,7 @@ public class CDBGen
 		public final ConfigItem sqlite = new ConfigItem(new SqliteOutputer());
 		public final ConfigItem palm = new ConfigItem(new PalmOutputer());
 		public final ConfigItem palmConduit = new ConfigItem(new PalmConduitOutputer());
+		public final ConfigItem vb6 = new ConfigItem(new VB6Outputer());
 	}
 	
 	public static void main(String[] args)
@@ -108,18 +110,20 @@ public class CDBGen
 		}
 		
 		cfg.recFile = toFile(props.getProperty("recFile", ""));
-		get(cfg.sqlite, props, "sqlite");
-		get(cfg.palm, props, "palm");
-		get(cfg.palmConduit, props, "palmConduit");
+		get(cfg.sqlite, props);
+		get(cfg.palm, props);
+		get(cfg.palmConduit, props);
+		get(cfg.vb6, props);
 	}
 	
 	private static void saveToProperties(Config cfg)
 	{
 		Properties props = new Properties();
 		props.setProperty("recFile", toString(cfg.recFile));
-		set(props, "sqlite", cfg.sqlite);
-		set(props, "palm", cfg.palm);
-		set(props, "palmConduit", cfg.palmConduit);
+		set(props, cfg.sqlite);
+		set(props, cfg.palm);
+		set(props, cfg.palmConduit);
+		set(props, cfg.vb6);
 		
 		try
 		{
@@ -143,15 +147,17 @@ public class CDBGen
 		}
 	}
 	
-	private static void get(ConfigItem item, Properties props, String name)
+	private static void get(ConfigItem item, Properties props)
 	{
+		String name = item.outputer.getName();
 		item.enabled = Boolean.parseBoolean(props.getProperty(name + ".enabled", "false"));
 		item.outputDir = toFile(props.getProperty(name + ".outputDir", ""));
 		item.namespace = props.getProperty(name + ".namespace", "");
 	}
 	
-	private static void set(Properties props, String name, ConfigItem item)
+	private static void set(Properties props, ConfigItem item)
 	{
+		String name = item.outputer.getName();
 		props.setProperty(name + ".enabled", Boolean.toString(item.enabled));
 		props.setProperty(name + ".outputDir", toString(item.outputDir));
 		props.setProperty(name + ".namespace", item.namespace);
@@ -244,6 +250,7 @@ public class CDBGen
 			processOutputer(cfg.recFile, cfg.sqlite, struct, structs);
 			processOutputer(cfg.recFile, cfg.palm, struct, structs);
 			processOutputer(cfg.recFile, cfg.palmConduit, struct, structs);
+			processOutputer(cfg.recFile, cfg.vb6, struct, structs);
 		}
 	}
 	

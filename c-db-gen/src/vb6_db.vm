@@ -1,0 +1,113 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( isString $var )$utils.isString($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( type $var )$utils.typeName($var)#end
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+  Persistable = 0  'NotPersistable
+  DataBindingBehavior = 0  'vbNone
+  DataSourceBehavior  = 0  'vbNone
+  MTSTransactionMode  = 0  'NotAnMTSObject
+END
+Attribute VB_Name = "${struct.name}DB"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Explicit
+
+Public connection As cConnection
+
+
+Function Query(id as Long) As $struct.name
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}DB", "Invalid connection"
+    
+    Dim ret As New $struct.name 
+    ret.Load connection, connection.OpenRecordset("SELECT * FROM ${struct.name} WHERE id = " & id, True)
+    Set Query = ret
+End Function
+
+
+#if( $utils.hasNotList($struct) ) 
+#set( $i = 1 )
+Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )#if( $i > 1 ), #end#set( $i = $i + 1 )Optional $field.name#end#end) As Collection
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}DB", "Invalid connection"
+    
+    Dim sql as String    
+    sql = "SELECT * FROM $struct.name "
+    
+    Dim hasWhere As Boolean
+    hasWhere = false
+#foreach( $field in $struct.fields )
+#if ( not $field.list )
+    If Not isMissing($field.name) Then
+        sql = sql & IIf(hasWhere, "AND ", "WHERE ") & "$field.name == ? "
+        hasWhere = True
+    End If
+#end
+#end
+    
+    sql = sql & "ORDER BY id"
+    
+    Dim cmd As cCommand
+    Set cmd = connection.CreateCommand(sql)
+    
+    Dim bind As Integer
+    bind = 1
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+    If Not isMissing($field.name) Then 
+#if( not $field.primitive )
+        cmd.SetInt32 bind, ${field.name}.id
+#elseif( $field.string )
+        cmd.SetText bind, ${utils.convertionFunction($field)}($field.name) 
+#elseif( $field.type.name() == 'Boolean' )
+        cmd.SetBoolean bind, ${utils.convertionFunction($field)}($field.name)
+#elseif( $field.type.name() == 'DateTime' )
+        cmd.SetInt32 bind, DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name)) 
+#else
+        cmd.SetInt32 bind, ${utils.convertionFunction($field)}($field.name)
+#end
+        bind = bind + 1
+    End if 
+#end
+#end
+    
+    Dim rs As cRecordset
+    Set rs = connection.OpenRecordset(cmd.sql, True)
+    
+    Dim ret As New Collection 
+    Dim tmp as ${struct.name}
+    Do Until rs.EOF
+        Set tmp = New ${struct.name}
+        tmp.Load connection, rs
+        ret.Add tmp
+        rs.MoveNext
+    Loop
+    Set QueryAll = ret
+End Function
+
+
+#else
+Function QueryAll() As Collection
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}DB", "Invalid connection"
+    
+    Dim rs As cRecordset 
+    Set rs = connection.OpenRecordset("SELECT * FROM ${struct.name}", True)
+    
+    Dim ret As New Collection 
+    Dim tmp as ${struct.name}
+    Do Until rs.EOF
+        Set tmp = New ${struct.name}
+        tmp.Load connection, rs
+        ret.Add tmp
+        rs.MoveNext
+    Loop
+    Set QueryAll = ret
+End Function
+
+
+#end

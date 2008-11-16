@@ -1,0 +1,103 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( isString $var )$utils.isString($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( type $var )$utils.typeName($var)#end
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+  Persistable = 0  'NotPersistable
+  DataBindingBehavior = 0  'vbNone
+  DataSourceBehavior  = 0  'vbNone
+  MTSTransactionMode  = 0  'NotAnMTSObject
+END
+Attribute VB_Name = "$struct.name"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Explicit
+
+Private connection As cConnection
+Public id As Long
+#foreach( $field in $struct.fields )
+#if( $field.list )
+Private ${field.name}List as Collection
+Private ${field.name}Initialized as Boolean
+#else
+Public #fieldDecl($field)
+
+#end
+#end
+
+
+Private Sub Class_Initialize()
+    id = -1
+#foreach( $field in $struct.fields )
+#if( $field.list )
+    ${field.name}Initialized = True
+    Set ${field.name}List = New Collection
+#elseif( not $field.primitive )
+    Set $field.name = New #type($field)
+
+#elseif( $field.type.name() == 'DateTime' )
+    $field.name = Now
+#end
+#end
+End Sub
+
+
+Sub Load(cnn As cConnection, rs As cRecordset)
+    Set connection = cnn
+    id = CLng(rs("id"))
+#foreach( $field in $struct.fields )
+#if( $field.list )
+    ${field.name}Initialized = False
+#elseif( not $field.primitive )
+    If CLng(rs("${field.name}ID")) > 0 Then
+    	Dim tmpDB As new #type($field)DB
+    	Set tmpDB.connection = cnn
+        Set ${field.name} = tmpDB.Query(CLng(rs("${field.name}ID")))
+    End If
+#elseif( $field.type.name() == 'DateTime' )
+    $field.name = DateAdd("s", CLng(rs("$field.name")), #1/1/1970#)
+#else
+    $field.name = ${utils.convertionFunction($field)}(rs("$field.name"))
+#end
+#end
+End Sub
+
+
+#foreach( $field in $struct.fields )
+#if( $field.list )
+Public Property Get ${field.name}() As Collection
+    If Not ${field.name}Initialized Then
+        Dim rs As cRecordset
+        Set rs = connection.OpenRecordset("SELECT #type($field).* " _
+                                        & "FROM ${struct.name} " _
+                                            & "JOIN ${struct.name}_#type($field) ON (${struct.name}.id == ${struct.name}_#type($field).${struct.name}) " _
+                                            & "JOIN #type($field) ON (${struct.name}_#type($field).#type($field) == #type($field).id) " _
+                                        & "WHERE ${struct.name}.id = " & id & " " _
+                                        & "ORDER BY #type($field).id", True)
+        
+        Dim tmp as #type($field)
+
+        Do Until rs.EOF
+            Set tmp = New #type($field)
+    	    
+            tmp.Load connection, rs
+            ${field.name}List.Add tmp
+            rs.MoveNext
+        Loop
+        
+        ${field.name}Initialized = true
+    End If
+    
+    Set ${field.name} = ${field.name}List
+     
+End Property
+
+
+#end
+#end
