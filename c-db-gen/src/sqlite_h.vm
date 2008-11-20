@@ -66,8 +66,6 @@ private:
 #end
 #end
 	
-	static sqlite3_int64 internalStore(sqlite::Database *db, ${struct.name} *obj);
-	
 public:
 	
 	sqlite3_int64 id;

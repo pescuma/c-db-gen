@@ -56,9 +56,9 @@ Sub Load(cnn As cConnection, rs As cRecordset)
     ${field.name}Initialized = False
 #elseif( not $field.primitive )
     If CLng(rs("${field.name}ID")) > 0 Then
-    	Dim tmpDB As new #type($field)DB
-    	Set tmpDB.connection = cnn
-        Set ${field.name} = tmpDB.Query(CLng(rs("${field.name}ID")))
+        Dim tmpFactory As new #type($field)Factory
+        Set tmpFactory.connection = cnn
+        Set ${field.name} = tmpFactory.Query(CLng(rs("${field.name}ID")))
     End If
 #elseif( $field.type.name() == 'DateTime' )
     $field.name = DateAdd("s", CLng(rs("$field.name")), #1/1/1970#)
@@ -66,6 +66,12 @@ Sub Load(cnn As cConnection, rs As cRecordset)
     $field.name = ${utils.convertionFunction($field)}(rs("$field.name"))
 #end
 #end
+End Sub
+
+
+Sub Connect(cnn As cConnection)
+    If cnn Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    Set connection = cnn
 End Sub
 
 
@@ -85,7 +91,7 @@ Public Property Get ${field.name}() As Collection
 
         Do Until rs.EOF
             Set tmp = New #type($field)
-    	    
+            
             tmp.Load connection, rs
             ${field.name}List.Add tmp
             rs.MoveNext
@@ -101,3 +107,101 @@ End Property
 
 #end
 #end
+Sub Store
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    
+    connection.BeginTrans
+
+    Dim update As Boolean
+    Dim tmpId as Long
+    Dim cmd As cCommand
+    
+    update = (id > 0)
+
+    Set cmd = connection.CreateCommand("INSERT OR REPLACE INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)")
+
+    If update Then cmd.SetInt32 1, id
+#set( $i = 2 )
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( not $field.primitive )
+    If ${field.name}.id > 0 Then cmd.SetInt32 $i, ${field.name}.id
+#elseif( $field.string )
+    cmd.SetText $i, ${field.name}
+#elseif( $field.type.name() == 'Boolean' )
+    cmd.SetBoolean $i, $field.name
+#elseif( $field.type.name() == 'DateTime' )
+    cmd.SetInt32 $i, DateDiff("s", #1/1/1970#, $field.name)
+#else
+    cmd.SetInt32 $i, $field.name
+#end
+#set( $i = $i + 1 )
+#end
+#end
+
+    cmd.Execute
+
+    tmpId = connection.LastInsertAutoID
+    
+    If update And tmpId <> id Then Err.Raise 3, "${struct.name}Factory", "Wrong id"
+#foreach( $field in $struct.fields )
+#if( $field.list )
+
+    If ${field.name}Initialized Then 
+        Set cmd = connection.CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
+        cmd.SetInt32 1, tmpId
+        cmd.Execute
+
+        Dim ref As #type($field)
+
+        For Each ref In ${field.name}List
+            If ref.id <= 0 Then Err.Raise 2, "${struct.name}Factory", "#type($field) is not in database"
+            
+            Set cmd = connection.CreateCommand("INSERT OR REPLACE INTO ${struct.name}_#type($field) VALUES (?, ?)")
+            cmd.SetInt32 1, tmpId
+            cmd.SetInt32 2, ref.id
+            cmd.Execute
+        Next
+    End If
+#end
+#end
+    
+    Set cmd = Nothing
+    
+    connection.CommitTrans
+    
+    id = tmpId
+End Sub
+
+
+Sub Remove
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    
+    If id <= 0 Then Err.Raise 2, "${struct.name}", "Object is not in database"
+    
+    connection.BeginTrans
+    
+    Dim cmd As cCommand
+    
+    Set cmd = connection.CreateCommand("DELETE FROM ${struct.name} WHERE id == ?")
+    cmd.SetInt32 1, id
+    cmd.Execute
+#foreach( $field in $struct.fields )
+#if( $field.list )
+
+    If ${field.name}Initialized Then 
+        Set cmd = connection.CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
+        cmd.SetInt32 1, id
+        cmd.Execute
+    End If
+#end
+#end
+
+    Set cmd = Nothing
+    
+    connection.CommitTrans
+    
+    id = -1
+End Sub
+
+

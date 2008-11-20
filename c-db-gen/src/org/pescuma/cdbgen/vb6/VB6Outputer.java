@@ -22,7 +22,7 @@ public class VB6Outputer extends VelocityOutputer
 	@Override
 	protected File[] getFilenames(Struct struct, File path)
 	{
-		return new File[] { new File(path, struct.name + ".cls"), new File(path, struct.name + "DB.cls"), };
+		return new File[] { new File(path, struct.name + ".cls"), new File(path, struct.name + "Factory.cls"), };
 	}
 	
 	@Override

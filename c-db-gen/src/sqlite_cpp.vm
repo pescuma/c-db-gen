@@ -292,26 +292,11 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
 
-	if (db->isAutoCommitEnabled())
-	{
-		sqlite::Transaction trans(db);
-		sqlite3_int64 id = internalStore(db, obj);
-		trans.commit();
-		
-		obj->id = id;
-	}
-	else
-	{
-		obj->id = internalStore(db, obj);
-	}
-}
+	sqlite::Transaction trans(db);
 
-
-sqlite3_int64 ${struct.name}::internalStore(sqlite::Database *db, ${struct.name} *obj)
-{
 	bool update = (obj->id > 0);
 	sqlite3_int64 id;
-
+	
 	{
 		sqlite::Statement stmt = db->prepare(_T("INSERT OR REPLACE INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)"));
 
@@ -347,7 +332,7 @@ sqlite3_int64 ${struct.name}::internalStore(sqlite::Database *db, ${struct.name}
 		throw sqlite::DatabaseException(SQLITE_ERROR, "Wrong id");
 #foreach( $field in $struct.fields )
 #if( $field.list )
-
+	
 	if (obj->${field.name}Initialized) 
 	{
 		{
@@ -355,16 +340,16 @@ sqlite3_int64 ${struct.name}::internalStore(sqlite::Database *db, ${struct.name}
 			stmt.bind(1, id);
 			stmt.execute();
 		}
-
+		
 		{
 			sqlite::Statement stmt = db->prepare(_T("INSERT OR REPLACE INTO ${struct.name}_#type($field) VALUES (?, ?)"));
 
 			for(std::vector<#type($field)>::iterator it = obj->${field.name}List.begin(); it != obj->${field.name}List.end(); it++)
 			{
 				#type($field) &ref = *it;
-
-				if (ref.id < 0)
-					throw sqlite::DatabaseException(SQLITE_ERROR, "#type($field) is not stored");
+				
+				if (ref.id <= 0)
+					throw sqlite::DatabaseException(SQLITE_ERROR, "#type($field) is not in database");
 				
 				stmt.reset();
 				stmt.bind(1, id);
@@ -376,7 +361,9 @@ sqlite3_int64 ${struct.name}::internalStore(sqlite::Database *db, ${struct.name}
 #end
 #end
 	
-	return id;
+	trans.commit();
+	
+	obj->id = id;
 }
 
 
@@ -386,13 +373,27 @@ void ${struct.name}::remove(sqlite::Database *db, ${struct.name} *obj)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
 	if (obj->id <= 0)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Object is not in database"));
-
+	
+	sqlite::Transaction trans(db);
+	
 	{
 		sqlite::Statement stmt = db->prepare(_T("DELETE FROM ${struct.name} WHERE id == ?"));
 		stmt.bind(1, obj->id);
 		stmt.execute();
 	}
+#foreach( $field in $struct.fields )
+#if( $field.list )
 
+	{
+		sqlite::Statement stmt = db->prepare(_T("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?"));
+		stmt.bind(1, obj->id);
+		stmt.execute();
+	}
+#end
+#end
+	
+	trans.commit();
+	
 	obj->id = -1;
 }
 #if( $namespace != '' )

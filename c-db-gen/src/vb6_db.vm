@@ -12,7 +12,7 @@ BEGIN
   DataSourceBehavior  = 0  'vbNone
   MTSTransactionMode  = 0  'NotAnMTSObject
 END
-Attribute VB_Name = "${struct.name}DB"
+Attribute VB_Name = "${struct.name}Factory"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = False
@@ -22,8 +22,63 @@ Option Explicit
 Public connection As cConnection
 
 
+Sub CreateTable()
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    
+    connection.Execute _
+        "CREATE TABLE IF NOT EXISTS ${struct.name} (" _
+            & "id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( not $field.primitive )
+, " _
+            & "${field.name}ID INTEGER#elseif( $field.string )
+, " _
+            & "$field.name VARCHAR#else
+, " _
+            & "$field.name INTEGER#end
+#end
+#end
+" _
+        & ")"
+#foreach( $field in $struct.fields )
+#if( $field.list )
+    
+    connection.Execute _
+        "CREATE TABLE IF NOT EXISTS ${struct.name}_#type($field) (" _
+            & "${struct.name} INTEGER, " _
+            & "#type($field) INTEGER, " _
+            & "PRIMARY KEY (${struct.name}, #type($field)) " _
+        & ")"
+#end
+#end
+#foreach( $index in $struct.indexes )
+
+    connection.Execute "CREATE INDEX IF NOT EXISTS INDEX_${struct.name}#foreach( $field in $index.fields )_$field#end ON ${struct.name}(#set( $i = 0 )#foreach( $field in $index.fields )
+#if( $i > 0), #end${field}#set( $i = $i + 1 )
+#end)"
+#end
+End Sub
+
+
+Sub DropTable()
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+#foreach( $index in $struct.indexes )
+    
+    connection.Execute "DROP INDEX IF EXISTS INDEX_${struct.name}#foreach( $f in $index.fields )_$f#end"
+#end
+#foreach( $field in $struct.fields )
+#if( $field.list )
+    
+    connection.Execute"DROP TABLE IF EXISTS ${struct.name}_#type($field)"
+#end
+#end
+    
+    connection.Execute "DROP TABLE IF EXISTS ${struct.name}"
+End Sub
+
+
 Function Query(id as Long) As $struct.name
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}DB", "Invalid connection"
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim ret As New $struct.name 
     ret.Load connection, connection.OpenRecordset("SELECT * FROM ${struct.name} WHERE id = " & id, True)
@@ -34,7 +89,7 @@ End Function
 #if( $utils.hasNotList($struct) ) 
 #set( $i = 1 )
 Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )#if( $i > 1 ), #end#set( $i = $i + 1 )Optional $field.name#end#end) As Collection
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}DB", "Invalid connection"
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim sql as String    
     sql = "SELECT * FROM $struct.name "
@@ -77,7 +132,7 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )#if
 #end
     
     Dim rs As cRecordset
-    Set rs = connection.OpenRecordset(cmd.sql, True)
+    Set rs = connection.OpenRecordset(cmd.sql, True) ' TODO
     
     Dim ret As New Collection 
     Dim tmp as ${struct.name}
@@ -93,7 +148,7 @@ End Function
 
 #else
 Function QueryAll() As Collection
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}DB", "Invalid connection"
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim rs As cRecordset 
     Set rs = connection.OpenRecordset("SELECT * FROM ${struct.name}", True)
@@ -111,3 +166,17 @@ End Function
 
 
 #end
+Sub Store(obj As ${struct.name})
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    obj.Connect connection
+    obj.Store
+End Sub
+
+
+Sub Remove(obj As ${struct.name})
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    obj.Connect connection
+    obj.Remove
+End Sub
+
+
