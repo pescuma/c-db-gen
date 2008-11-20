@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <sqlite3.h>
+#include <vector>
 #include <string>
 namespace std {
 typedef basic_string<TCHAR, char_traits<TCHAR>, allocator<TCHAR> > tstring;
@@ -24,11 +25,14 @@ namespace sqlite {
 		void close();
 
 		int get(const TCHAR *sql);
+		std::vector<int> getAll(const TCHAR *sql);
 		void execute(const TCHAR *sql);
 		void execute(const TCHAR *sql, int (*callback)(void*,int,char**,char**), void *param);
 		Statement prepare(const TCHAR *sql);
 
 		sqlite3_int64 getLastInsertRowID();
+
+		bool isAutoCommitEnabled();
 
 
 	private:
@@ -98,6 +102,7 @@ namespace sqlite {
 	private:
 		Database *db;
 		bool finished;
+		bool valid;
 
 	public:
 		Transaction(Database *db);

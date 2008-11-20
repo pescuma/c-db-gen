@@ -4,7 +4,7 @@
 #include "scope.h"
 
 
-#pragma comment(lib, "sqlite3.lib")
+//#pragma comment(lib, "sqlite3.lib")
 
 
 namespace sqlite {
@@ -184,7 +184,7 @@ namespace sqlite {
 	}
 
 
-	static int copyFirstColumn(void *param, int numCols, char **values, char **columns)
+	static int copyFirstFromFirstColumn(void *param, int numCols, char **values, char **columns)
 	{
 		int *ret = (int *)param;
 
@@ -199,11 +199,33 @@ namespace sqlite {
 		return 0;
 	}
 
-
 	int Database::get(const TCHAR *sql)
 	{
 		int ret = 0;
-		execute(sql, copyFirstColumn, &ret);
+		execute(sql, copyFirstFromFirstColumn, &ret);
+		return ret;
+	}
+
+
+	static int copyAllFromFirstColumn(void *param, int numCols, char **values, char **columns)
+	{
+		std::vector<int> *ret = (std::vector<int> *) param;
+
+		if (numCols <= 0)
+			return 0;
+
+		if (values[0] == 0)
+			ret->push_back(0);
+		else
+			ret->push_back(atoi(values[0]));
+
+		return 0;
+	}
+
+	std::vector<int> Database::getAll(const TCHAR *sql)
+	{
+		std::vector<int> ret;
+		execute(sql, copyAllFromFirstColumn, &ret);
 		return ret;
 	}
 
@@ -243,6 +265,12 @@ namespace sqlite {
 	sqlite3_int64 Database::getLastInsertRowID()
 	{
 		return sqlite3_last_insert_rowid(db);
+	}
+
+
+	bool Database::isAutoCommitEnabled()
+	{
+		return sqlite3_get_autocommit(db) != 0;
 	}
 
 
@@ -555,14 +583,16 @@ namespace sqlite {
 	{
 		this->db = db;
 		finished = false;
-
-		db->execute("BEGIN TRANSACTION");
+		valid = db->isAutoCommitEnabled();
+		
+		if (valid)
+			db->execute("BEGIN TRANSACTION");
 	}
 
 
 	Transaction::~Transaction()
 	{
-		if (!finished)
+		if (valid && !finished)
 			rollback();
 	}
 
@@ -570,14 +600,18 @@ namespace sqlite {
 	void Transaction::commit()
 	{
 		finished = true;
-		db->execute("COMMIT");
+
+		if (valid)
+			db->execute("COMMIT");
 	}
 
 
 	void Transaction::rollback()
 	{
 		finished = true;
-		db->execute("ROLLBACK");
+
+		if (valid)
+			db->execute("ROLLBACK");
 	}
 
 
