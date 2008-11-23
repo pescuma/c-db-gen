@@ -17,7 +17,8 @@ public class StructField
 		UInt16,
 		Int32,
 		UInt32,
-		DateTime
+		DateTime,
+		Currency
 	};
 	
 	public Type type;

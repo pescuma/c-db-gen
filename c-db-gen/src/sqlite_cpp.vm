@@ -47,6 +47,8 @@ ${struct.name}::${struct.name}(sqlite::Database *db, sqlite::Statement *stmt)#se
 	$field.name = stmt->getColumnAsInt($i);
 #elseif( $field.type.name() == 'DateTime' )
 	$field.name = (#type($field)) stmt->getColumnAsInt64($i);
+#elseif( $field.type.name() == 'Currency' )
+	$field.name = stmt->getColumnAsInt($i);
 #else
 	$field.name = (#type($field)) stmt->getColumnAsInt($i);
 #end
@@ -225,7 +227,7 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db)
 
 	std::vector<$struct.name> ret;
 
-	sqlite::Statement stmt = db->prepare(_T("SELECT * FROM $struct.name ORDER BY id"));
+	sqlite::Statement stmt = db->prepare(_T("SELECT * FROM $struct.name ORDER BY id ASC"));
 	while (stmt.step())
 		ret.push_back(${struct.name}(db, &stmt));
 
@@ -234,7 +236,7 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db)
 
 
 #if( $utils.hasNotList($struct) ) 
-std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *p#fu($field.name)#end#end)
+std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *p#fu($field.name)#end#end, std::string *pOrderBy)
 {
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
@@ -255,7 +257,11 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach(
 #end
 #end
 	
-	sql += _T("ORDER BY id");
+	sql += _T("ORDER BY ");
+	if (pOrderBy == NULL)
+		sql += _T("id ASC");
+	else
+		sql += *pOrderBy;
 	
 	sqlite::Statement stmt = db->prepare(sql.c_str());
 	
@@ -273,6 +279,8 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach(
 		stmt.bind(bind++, *p#fu($field.name));
 #elseif( $field.type.name() == 'DateTime' )
 		stmt.bind(bind++, (sqlite3_int64) *p#fu($field.name));
+#elseif( $field.type.name() == 'Currency' )
+		stmt.bind(bind++, *p#fu($field.name));
 #else
 		stmt.bind(bind++, (int) *p#fu($field.name));
 #end
@@ -316,6 +324,8 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 		stmt.bind($i, obj->$field.name);
 #elseif( $field.type.name() == 'DateTime' )
 		stmt.bind($i, (sqlite3_int64) obj->$field.name);
+#elseif( $field.type.name() == 'Currency' )
+		stmt.bind($i, obj->$field.name);
 #else
 		stmt.bind($i, (int) obj->$field.name);
 #end

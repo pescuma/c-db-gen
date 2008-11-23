@@ -164,6 +164,9 @@ void ${class}::Read(${struct.name} &data, BYTE *pBuf, size_t size)
 #elseif( $field.type.name() == 'DateTime' )
 	data.$field.name = ((#type($field)) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf)) - 2082844799; // 1904-01-01
 	pBuf += 4;
+#elseif( $field.type.name() == 'Currency' )
+	data.$field.name = (#type($field)) CPalmRecord::SwapDWordToIntel(* (DWORD *) pBuf);
+	pBuf += 4;
 #end
 #end
 }

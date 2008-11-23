@@ -62,6 +62,8 @@ Sub Load(cnn As cConnection, rs As cRecordset)
     End If
 #elseif( $field.type.name() == 'DateTime' )
     $field.name = DateAdd("s", CLng(rs("$field.name")), #1/1/1970#)
+#elseif( $field.type.name() == 'Currency' )
+    $field.name = CCur(rs("$field.name") / 100)
 #else
     $field.name = ${utils.convertionFunction($field)}(rs("$field.name"))
 #end
@@ -107,13 +109,13 @@ End Property
 
 #end
 #end
-Sub Store
+Sub Store()
     If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
     
     connection.BeginTrans
 
     Dim update As Boolean
-    Dim tmpId as Long
+    Dim tmpId As Long
     Dim cmd As cCommand
     
     update = (id > 0)
@@ -132,6 +134,8 @@ Sub Store
     cmd.SetBoolean $i, $field.name
 #elseif( $field.type.name() == 'DateTime' )
     cmd.SetInt32 $i, DateDiff("s", #1/1/1970#, $field.name)
+#elseif( $field.type.name() == 'Currency' )
+    cmd.SetInt32 $i, CLng($field.name * 100)
 #else
     cmd.SetInt32 $i, $field.name
 #end
@@ -174,7 +178,7 @@ Sub Store
 End Sub
 
 
-Sub Remove
+Sub Remove()
     If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
     
     If id <= 0 Then Err.Raise 2, "${struct.name}", "Object is not in database"

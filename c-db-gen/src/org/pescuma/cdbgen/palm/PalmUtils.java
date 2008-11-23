@@ -30,6 +30,8 @@ public class PalmUtils extends Utils
 				return "UInt32";
 			case DateTime:
 				return "UInt32";
+			case Currency:
+				return "Int32";
 		}
 		throw new IllegalStateException();
 	}

@@ -87,8 +87,7 @@ End Function
 
 
 #if( $utils.hasNotList($struct) ) 
-#set( $i = 1 )
-Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )#if( $i > 1 ), #end#set( $i = $i + 1 )Optional $field.name#end#end) As Collection
+Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Optional $field.name, #end#{end}Optional sortBy As String = "id ASC") As Collection
     If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim sql as String    
@@ -105,7 +104,7 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )#if
 #end
 #end
     
-    sql = sql & "ORDER BY id"
+    sql = sql & "ORDER BY " & sortBy 
     
     Dim cmd As cCommand
     Set cmd = connection.CreateCommand(sql)
@@ -123,6 +122,8 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )#if
         cmd.SetBoolean bind, ${utils.convertionFunction($field)}($field.name)
 #elseif( $field.type.name() == 'DateTime' )
         cmd.SetInt32 bind, DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name)) 
+#elseif( $field.type.name() == 'Currency' )
+        cmd.SetInt32 bind, CLng($field.name * 100) 
 #else
         cmd.SetInt32 bind, ${utils.convertionFunction($field)}($field.name)
 #end
@@ -151,7 +152,7 @@ Function QueryAll() As Collection
     If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim rs As cRecordset 
-    Set rs = connection.OpenRecordset("SELECT * FROM ${struct.name}", True)
+    Set rs = connection.OpenRecordset("SELECT * FROM ${struct.name} ORDER BY id ASC", True)
     
     Dim ret As New Collection 
     Dim tmp as ${struct.name}

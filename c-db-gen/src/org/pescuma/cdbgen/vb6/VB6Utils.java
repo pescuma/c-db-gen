@@ -33,6 +33,8 @@ public class VB6Utils extends Utils
 				return "Long";
 			case DateTime:
 				return "Date";
+			case Currency:
+				return "Currency";
 		}
 		throw new IllegalStateException();
 	}
@@ -71,6 +73,8 @@ public class VB6Utils extends Utils
 				return "CLng";
 			case DateTime:
 				return "CDate";
+			case Currency:
+				return "CCur";
 		}
 		throw new IllegalStateException();
 	}

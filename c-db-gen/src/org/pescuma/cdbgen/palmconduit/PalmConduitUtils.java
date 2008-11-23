@@ -37,6 +37,8 @@ public class PalmConduitUtils extends Utils
 				return "unsigned int";
 			case DateTime:
 				return "time_t";
+			case Currency:
+				return "int";
 		}
 		throw new IllegalStateException();
 	}
@@ -93,6 +95,9 @@ public class PalmConduitUtils extends Utils
 					ret += 4 * max(1, field.array);
 					break;
 				case DateTime:
+					ret += 4 * max(1, field.array);
+					break;
+				case Currency:
 					ret += 4 * max(1, field.array);
 					break;
 			}

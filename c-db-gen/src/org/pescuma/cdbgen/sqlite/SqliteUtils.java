@@ -33,6 +33,8 @@ public class SqliteUtils extends Utils
 				return "unsigned int";
 			case DateTime:
 				return "time_t";
+			case Currency:
+				return "int";
 		}
 		throw new IllegalStateException();
 	}
