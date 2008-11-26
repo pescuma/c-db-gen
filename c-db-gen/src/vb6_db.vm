@@ -119,7 +119,7 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Opt
 #elseif( $field.string )
         cmd.SetText bind, ${utils.convertionFunction($field)}($field.name) 
 #elseif( $field.type.name() == 'Boolean' )
-        cmd.SetBoolean bind, ${utils.convertionFunction($field)}($field.name)
+        cmd.SetInt32 bind, IIf(${utils.convertionFunction($field)}($field.name), 1, 0)
 #elseif( $field.type.name() == 'DateTime' )
         cmd.SetInt32 bind, DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name)) 
 #elseif( $field.type.name() == 'Currency' )
