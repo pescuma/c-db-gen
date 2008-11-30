@@ -97,8 +97,41 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Opt
     hasWhere = false
 #foreach( $field in $struct.fields )
 #if ( not $field.list )
-    If Not isMissing($field.name) Then
-        sql = sql & IIf(hasWhere, "AND ", "WHERE ") & "$field.name == ? "
+    If Not IsMissing($field.name) And Not IsEmpty($field.name) Then
+        sql = sql & IIf(hasWhere, "AND ", "WHERE ")
+#if( not $field.primitive )
+        sql = sql & "${field.name}ID == " & ${field.name}.id & " "
+#elseif( $field.string )
+        If TypeName($field.name) = "DataRange" Then
+            sql = sql & "$field.name >= """ & ${utils.convertionFunction($field)}(${field.name}.StartValue) & """ AND $field.name < """ & ${utils.convertionFunction($field)}(${field.name}.EndValue) & """ "
+        Else
+            sql = sql & "$field.name == """ & ${utils.convertionFunction($field)}($field.name) & """ " 
+        End If
+#elseif( $field.type.name() == 'Boolean' )
+        If TypeName($field.name) = "DataRange" Then
+            sql = sql & "$field.name >= " & IIf(${utils.convertionFunction($field)}(${field.name}.StartValue), 1, 0) & " AND $field.name < " & IIf(${utils.convertionFunction($field)}(${field.name}.EndValue), 1, 0) & " "
+        Else
+            sql = sql & "$field.name == " & IIf(${utils.convertionFunction($field)}($field.name), 1, 0) & " " 
+        End If
+#elseif( $field.type.name() == 'DateTime' )
+        If TypeName($field.name) = "DataRange" Then
+            sql = sql & "$field.name >= " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.StartValue)) & " AND $field.name < " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.EndValue)) & " "
+        Else
+            sql = sql & "$field.name == " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name)) & " " 
+        End If
+#elseif( $field.type.name() == 'Currency' )
+        If TypeName($field.name) = "DataRange" Then
+            sql = sql & "$field.name >= " & CLng(${field.name}.StartValue * 100) & " AND $field.name < " & CLng(${field.name}.EndValue * 100) & " "
+        Else
+            sql = sql & "$field.name == " & CLng($field.name * 100) & " " 
+        End If
+#else
+        If TypeName($field.name) = "DataRange" Then
+            sql = sql & "$field.name >= " & ${utils.convertionFunction($field)}(${field.name}.StartValue) & " AND $field.name < " & ${utils.convertionFunction($field)}(${field.name}.EndValue) & " "
+        Else
+            sql = sql & "$field.name == " & ${utils.convertionFunction($field)}($field.name) & " " 
+        End If
+#end
         hasWhere = True
     End If
 #end
@@ -106,34 +139,8 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Opt
     
     sql = sql & "ORDER BY " & sortBy 
     
-    Dim cmd As cCommand
-    Set cmd = connection.CreateCommand(sql)
-    
-    Dim bind As Integer
-    bind = 1
-#foreach( $field in $struct.fields )
-#if( not $field.list )
-    If Not isMissing($field.name) Then 
-#if( not $field.primitive )
-        cmd.SetInt32 bind, ${field.name}.id
-#elseif( $field.string )
-        cmd.SetText bind, ${utils.convertionFunction($field)}($field.name) 
-#elseif( $field.type.name() == 'Boolean' )
-        cmd.SetInt32 bind, IIf(${utils.convertionFunction($field)}($field.name), 1, 0)
-#elseif( $field.type.name() == 'DateTime' )
-        cmd.SetInt32 bind, DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name)) 
-#elseif( $field.type.name() == 'Currency' )
-        cmd.SetInt32 bind, CLng($field.name * 100) 
-#else
-        cmd.SetInt32 bind, ${utils.convertionFunction($field)}($field.name)
-#end
-        bind = bind + 1
-    End if 
-#end
-#end
-    
     Dim rs As cRecordset
-    Set rs = connection.OpenRecordset(cmd.sql, True) ' TODO
+    Set rs = connection.OpenRecordset(sql, True)
     
     Dim ret As New Collection 
     Dim tmp as ${struct.name}

@@ -48,6 +48,41 @@ Private Sub Class_Initialize()
 End Sub
 
 
+Public Property Get Field(name As String)
+Attribute Field.VB_UserMemId = 0
+#foreach( $field in $struct.fields )
+    If name = "${field.name}" Then
+#if( $field.list )
+        Set Field = ${field.name}
+#elseif( not $field.primitive )
+        Set Field = ${field.name}
+#else
+        Field = ${field.name}
+#end
+        Exit Property
+    End If
+#end
+    ERR.Raise 10, "$struct.name", "Unknown field"
+End Property
+
+
+Public Property Let Field(name As String, value)
+#foreach( $field in $struct.fields )
+    If name = "${field.name}" Then
+#if( $field.list )
+        Set ${field.name} = value
+#elseif( not $field.primitive )
+        Set ${field.name} = value
+#else
+        ${field.name} = value
+#end
+        Exit Property
+    End If
+#end
+    ERR.Raise 10, "$struct.name", "Unknown field"
+End Property
+
+
 Sub Load(cnn As cConnection, rs As cRecordset)
     Set connection = cnn
     id = CLng(rs("id"))
