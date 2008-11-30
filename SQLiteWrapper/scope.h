@@ -6,6 +6,7 @@ template<class T>
 class scope 
 {
 public:
+	scope() : p(NULL) {}
 	scope(T t) : p(t) {}
 	~scope() { free(); }
 
@@ -16,6 +17,7 @@ public:
 		p = NULL;
 	}
 
+	T operator=(T t) { free(); p = t; return t; }
 	T operator->() const { return p; }
 	operator T() const { return p; }
 
