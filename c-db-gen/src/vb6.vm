@@ -70,7 +70,8 @@ Public Property Let Field(name As String, value)
 #foreach( $field in $struct.fields )
     If name = "${field.name}" Then
 #if( $field.list )
-        Set ${field.name} = value
+        Set ${field.name}List = value
+        ${field.name}Initialized = True
 #elseif( not $field.primitive )
         Set ${field.name} = value
 #else
