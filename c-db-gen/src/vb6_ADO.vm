@@ -1,0 +1,272 @@
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( isString $var )$utils.isString($var)#end
+#macro( fieldDecl $var )$utils.fieldDeclaration($var)#end
+#macro( type $var )$utils.typeName($var)#end
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+  Persistable = 0  'NotPersistable
+  DataBindingBehavior = 0  'vbNone
+  DataSourceBehavior  = 0  'vbNone
+  MTSTransactionMode  = 0  'NotAnMTSObject
+END
+Attribute VB_Name = "$struct.name"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+Option Explicit
+
+Private connection As ADODB.connection
+Public id As Long
+#foreach( $field in $struct.fields )
+#if( $field.list )
+Private ${field.name}List as Collection
+Private ${field.name}Initialized as Boolean
+#else
+Public #fieldDecl($field)
+
+#end
+#end
+
+
+Private Sub Class_Initialize()
+    id = -1
+#foreach( $field in $struct.fields )
+#if( $field.list )
+    ${field.name}Initialized = True
+    Set ${field.name}List = New Collection
+#elseif( not $field.primitive )
+    Set $field.name = New #type($field)
+
+#elseif( $field.type.name() == 'DateTime' )
+    $field.name = Now
+#end
+#end
+End Sub
+
+
+Public Property Get Field(name As String)
+Attribute Field.VB_UserMemId = 0
+#foreach( $field in $struct.fields )
+    If name = "${field.name}" Then
+#if( $field.list )
+        Set Field = ${field.name}
+#elseif( not $field.primitive )
+        Set Field = ${field.name}
+#else
+        Field = ${field.name}
+#end
+        Exit Property
+    End If
+#end
+    ERR.Raise 10, "$struct.name", "Unknown field"
+End Property
+
+
+Public Property Let Field(name As String, value)
+#foreach( $field in $struct.fields )
+    If name = "${field.name}" Then
+#if( $field.list )
+        Set ${field.name}List = value
+        ${field.name}Initialized = True
+#elseif( not $field.primitive )
+        Set ${field.name} = value
+#else
+        ${field.name} = value
+#end
+        Exit Property
+    End If
+#end
+    ERR.Raise 10, "$struct.name", "Unknown field"
+End Property
+
+
+Sub Load(cnn As ADODB.connection, rs As ADODB.Recordset)
+    Set connection = cnn
+    id = CLng(rs("id"))
+#foreach( $field in $struct.fields )
+#if( $field.list )
+    ${field.name}Initialized = False
+#elseif( not $field.primitive )
+    If CLng(rs("${field.name}ID")) > 0 Then
+        Dim tmpFactory As new #type($field)Factory
+        Set tmpFactory.connection = cnn
+        Set ${field.name} = tmpFactory.Query(CLng(rs("${field.name}ID")))
+    End If
+#elseif( $field.type.name() == 'DateTime' )
+    $field.name = DateAdd("s", CLng(rs("$field.name")), #1/1/1970#)
+#elseif( $field.type.name() == 'Currency' )
+    $field.name = CCur(rs("$field.name") / 100)
+#else
+    $field.name = ${utils.convertionFunction($field)}(rs("$field.name"))
+#end
+#end
+End Sub
+
+
+Sub Connect(cnn As ADODB.connection)
+    If cnn Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    Set connection = cnn
+End Sub
+
+
+#foreach( $field in $struct.fields )
+#if( $field.list )
+Public Property Get ${field.name}() As Collection
+    If Not ${field.name}Initialized Then
+        Dim rs As ADODB.Recordset
+        Set rs = OpenRecordset("SELECT #type($field).* " _
+                               & "FROM ${struct.name} " _
+                                   & "JOIN ${struct.name}_#type($field) ON (${struct.name}.id == ${struct.name}_#type($field).${struct.name}) " _
+                                   & "JOIN #type($field) ON (${struct.name}_#type($field).#type($field) == #type($field).id) " _
+                               & "WHERE ${struct.name}.id = " & id & " " _
+                               & "ORDER BY #type($field).id")
+        
+        Dim tmp as #type($field)
+
+        Do Until rs.EOF
+            Set tmp = New #type($field)
+            
+            tmp.Load connection, rs
+            ${field.name}List.Add tmp
+            rs.MoveNext
+        Loop
+        
+        ${field.name}Initialized = true
+    End If
+    
+    Set ${field.name} = ${field.name}List
+     
+End Property
+
+
+#end
+#end
+Sub Store()
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    
+    connection.BeginTrans
+
+    Dim update As Boolean
+    Dim tmpId As Long
+    Dim cmd As ADODB.Command
+    
+    update = (id > 0)
+
+    Set cmd = CreateCommand("INSERT OR REPLACE INTO ${struct.name} VALUES (?#foreach( $field in $struct.fields )#if( not $field.list ), ?#end#end)")
+
+    If update Then cmd.Parameters(0) = id
+#set( $i = 1 )
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( not $field.primitive )
+    If ${field.name}.id > 0 Then cmd.Parameters($i) = ${field.name}.id
+#elseif( $field.string )
+    cmd.Parameters($i) = ${field.name}
+#elseif( $field.type.name() == 'Boolean' )
+    cmd.Parameters($i) = $field.name
+#elseif( $field.type.name() == 'DateTime' )
+    cmd.Parameters($i) = DateDiff("s", #1/1/1970#, $field.name)
+#elseif( $field.type.name() == 'Currency' )
+    cmd.Parameters($i) = CLng($field.name * 100)
+#else
+    cmd.Parameters($i) = $field.name
+#end
+#set( $i = $i + 1 )
+#end
+#end
+
+    cmd.Execute
+
+    tmpId = connection.Execute("SELECT last_insert_rowid() AS ID")("ID")
+    
+    If update And tmpId <> id Then Err.Raise 3, "${struct.name}Factory", "Wrong id"
+#foreach( $field in $struct.fields )
+#if( $field.list )
+
+    If ${field.name}Initialized Then 
+        Set cmd = CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
+        cmd.Parameters(0) = tmpId
+        cmd.Execute
+
+        Dim ref As #type($field)
+
+        For Each ref In ${field.name}List
+            If ref.id <= 0 Then Err.Raise 2, "${struct.name}Factory", "#type($field) is not in database"
+            
+            Set cmd = CreateCommand("INSERT OR REPLACE INTO ${struct.name}_#type($field) VALUES (?, ?)")
+            cmd.Parameters(0) = tmpId
+            cmd.Parameters(1) = ref.id
+            cmd.Execute
+        Next
+    End If
+#end
+#end
+    
+    Set cmd = Nothing
+    
+    connection.CommitTrans
+    
+    id = tmpId
+End Sub
+
+
+Sub Remove()
+    If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    
+    If id <= 0 Then Err.Raise 2, "${struct.name}", "Object is not in database"
+    
+    connection.BeginTrans
+    
+    Dim cmd As ADODB.Command
+    
+    Set cmd = CreateCommand("DELETE FROM ${struct.name} WHERE id == ?")
+    cmd.Parameters(0) = id
+    cmd.Execute
+    
+#foreach( $field in $struct.fields )
+#if( $field.list )
+
+    If ${field.name}Initialized Then 
+	    Set cmd = CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
+	    cmd.Parameters(0) = id
+	    cmd.Execute
+    End If
+#end
+#end
+
+    Set cmd = Nothing
+    
+    connection.CommitTrans
+    
+    id = -1
+End Sub
+
+
+Private Function OpenRecordset(sql As String) As ADODB.Recordset
+    Dim rs As ADODB.Recordset
+    Set rs = New ADODB.Recordset
+    
+    rs.Open sql, connection
+    
+    Set OpenRecordset = rs
+End Function
+
+
+Private Function CreateCommand(sql As String) As ADODB.Command
+    Dim cmd As ADODB.Command
+    Set cmd = New ADODB.Command
+    
+    Set cmd.ActiveConnection = connection
+    cmd.CommandType = adCmdText
+    cmd.CommandText = sql
+    
+    Set CreateCommand = cmd
+End Function
+
+
+
+

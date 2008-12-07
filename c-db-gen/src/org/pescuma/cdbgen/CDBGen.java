@@ -23,7 +23,8 @@ import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.palm.PalmOutputer;
 import org.pescuma.cdbgen.palmconduit.PalmConduitOutputer;
 import org.pescuma.cdbgen.sqlite.SqliteOutputer;
-import org.pescuma.cdbgen.vb6.VB6Outputer;
+import org.pescuma.cdbgen.vb6_ADO.VB6ADOOutputer;
+import org.pescuma.cdbgen.vb6_dhSQLite.VB6DHOutputer;
 import org.pescuma.cdbgen.velocity.VelocityLogger;
 import org.pescuma.cdbgen.velocity.VelocityResourceLoader;
 import org.pescuma.jfg.gui.swt.JfgFormComposite;
@@ -55,7 +56,8 @@ public class CDBGen
 		public final ConfigItem sqlite = new ConfigItem(new SqliteOutputer());
 		public final ConfigItem palm = new ConfigItem(new PalmOutputer());
 		public final ConfigItem palmConduit = new ConfigItem(new PalmConduitOutputer());
-		public final ConfigItem vb6 = new ConfigItem(new VB6Outputer());
+		public final ConfigItem vb6_ADO = new ConfigItem(new VB6ADOOutputer());
+		public final ConfigItem vb6_dhSQLite = new ConfigItem(new VB6DHOutputer());
 	}
 	
 	public static void main(String[] args)
@@ -113,7 +115,8 @@ public class CDBGen
 		get(cfg.sqlite, props);
 		get(cfg.palm, props);
 		get(cfg.palmConduit, props);
-		get(cfg.vb6, props);
+		get(cfg.vb6_dhSQLite, props);
+		get(cfg.vb6_ADO, props);
 	}
 	
 	private static void saveToProperties(Config cfg)
@@ -123,7 +126,8 @@ public class CDBGen
 		set(props, cfg.sqlite);
 		set(props, cfg.palm);
 		set(props, cfg.palmConduit);
-		set(props, cfg.vb6);
+		set(props, cfg.vb6_dhSQLite);
+		set(props, cfg.vb6_ADO);
 		
 		try
 		{
@@ -250,7 +254,8 @@ public class CDBGen
 			processOutputer(cfg.recFile, cfg.sqlite, struct, structs);
 			processOutputer(cfg.recFile, cfg.palm, struct, structs);
 			processOutputer(cfg.recFile, cfg.palmConduit, struct, structs);
-			processOutputer(cfg.recFile, cfg.vb6, struct, structs);
+			processOutputer(cfg.recFile, cfg.vb6_dhSQLite, struct, structs);
+			processOutputer(cfg.recFile, cfg.vb6_ADO, struct, structs);
 		}
 	}
 	

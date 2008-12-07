@@ -1,4 +1,4 @@
-package org.pescuma.cdbgen.vb6;
+package org.pescuma.cdbgen.vb6_dhSQLite;
 
 import java.io.File;
 
@@ -6,11 +6,11 @@ import org.pescuma.cdbgen.Struct;
 import org.pescuma.cdbgen.Utils;
 import org.pescuma.cdbgen.outputer.VelocityOutputer;
 
-public class VB6Outputer extends VelocityOutputer
+public class VB6DHOutputer extends VelocityOutputer
 {
 	public String getName()
 	{
-		return "VB6";
+		return "VB6 dhSQLite";
 	}
 	
 	@Override
@@ -28,12 +28,12 @@ public class VB6Outputer extends VelocityOutputer
 	@Override
 	protected String[] getTemplateNames()
 	{
-		return new String[] { "vb6.vm", "vb6_db.vm" };
+		return new String[] { "vb6_dhSQLite.vm", "vb6_dhSQLite_db.vm" };
 	}
 	
 	@Override
 	protected Utils getUtils()
 	{
-		return new VB6Utils();
+		return new VB6DHUtils();
 	}
 }

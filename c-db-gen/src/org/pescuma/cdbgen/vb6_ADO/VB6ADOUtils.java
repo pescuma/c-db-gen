@@ -1,9 +1,9 @@
-package org.pescuma.cdbgen.vb6;
+package org.pescuma.cdbgen.vb6_ADO;
 
 import org.pescuma.cdbgen.StructField;
 import org.pescuma.cdbgen.Utils;
 
-public class VB6Utils extends Utils
+public class VB6ADOUtils extends Utils
 {
 	public static String typeName(StructField f)
 	{
