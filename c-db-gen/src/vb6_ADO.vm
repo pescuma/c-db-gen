@@ -167,7 +167,7 @@ Sub Store()
 #elseif( $field.string )
     cmd.Parameters($i) = ${field.name}
 #elseif( $field.type.name() == 'Boolean' )
-    cmd.Parameters($i) = $field.name
+    cmd.Parameters($i) = IIf(${utils.convertionFunction($field)}($field.name), 1, 0)
 #elseif( $field.type.name() == 'DateTime' )
     cmd.Parameters($i) = DateDiff("s", #1/1/1970#, $field.name)
 #elseif( $field.type.name() == 'Currency' )

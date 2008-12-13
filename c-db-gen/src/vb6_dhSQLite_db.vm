@@ -108,11 +108,7 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Opt
             sql = sql & "$field.name == """ & ${utils.convertionFunction($field)}($field.name) & """ " 
         End If
 #elseif( $field.type.name() == 'Boolean' )
-        If TypeName($field.name) = "DataRange" Then
-            sql = sql & "$field.name >= " & IIf(${utils.convertionFunction($field)}(${field.name}.StartValue), 1, 0) & " AND $field.name < " & IIf(${utils.convertionFunction($field)}(${field.name}.EndValue), 1, 0) & " "
-        Else
-            sql = sql & "$field.name == " & IIf(${utils.convertionFunction($field)}($field.name), 1, 0) & " " 
-        End If
+        sql = sql & "$field.name == " & IIf(${utils.convertionFunction($field)}($field.name), 1, 0) & " " 
 #elseif( $field.type.name() == 'DateTime' )
         If TypeName($field.name) = "DataRange" Then
             sql = sql & "$field.name >= " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.StartValue)) & " AND $field.name < " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.EndValue)) & " "
