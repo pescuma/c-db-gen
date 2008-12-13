@@ -23,8 +23,8 @@ Private connection As ADODB.connection
 Public id As Long
 #foreach( $field in $struct.fields )
 #if( $field.list )
-Private ${field.name}List as Collection
-Private ${field.name}Initialized as Boolean
+Private ${field.name}List As Collection
+Private ${field.name}Initialized As Boolean
 #else
 Public #fieldDecl($field)
 
@@ -92,7 +92,7 @@ Sub Load(cnn As ADODB.connection, rs As ADODB.Recordset)
     ${field.name}Initialized = False
 #elseif( not $field.primitive )
     If CLng(rs("${field.name}ID")) > 0 Then
-        Dim tmpFactory As new #type($field)Factory
+        Dim tmpFactory As New #type($field)Factory
         Set tmpFactory.connection = cnn
         Set ${field.name} = tmpFactory.Query(CLng(rs("${field.name}ID")))
     End If
@@ -108,7 +108,7 @@ End Sub
 
 
 Sub Connect(cnn As ADODB.connection)
-    If cnn Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    If cnn Is Nothing Then ERR.Raise 1, "${struct.name}", "Invalid connection"
     Set connection = cnn
 End Sub
 
@@ -125,17 +125,17 @@ Public Property Get ${field.name}() As Collection
                                & "WHERE ${struct.name}.id = " & id & " " _
                                & "ORDER BY #type($field).id")
         
-        Dim tmp as #type($field)
+        Dim tmp As #type($field)
 
         Do Until rs.EOF
             Set tmp = New #type($field)
-            
+
             tmp.Load connection, rs
             ${field.name}List.Add tmp
             rs.MoveNext
         Loop
         
-        ${field.name}Initialized = true
+        ${field.name}Initialized = True
     End If
     
     Set ${field.name} = ${field.name}List
@@ -146,7 +146,7 @@ End Property
 #end
 #end
 Sub Store()
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}", "Invalid connection"
     
     connection.BeginTrans
 
@@ -183,11 +183,11 @@ Sub Store()
 
     tmpId = connection.Execute("SELECT last_insert_rowid() AS ID")("ID")
     
-    If update And tmpId <> id Then Err.Raise 3, "${struct.name}Factory", "Wrong id"
+    If update And tmpId <> id Then ERR.Raise 3, "${struct.name}Factory", "Wrong id"
 #foreach( $field in $struct.fields )
 #if( $field.list )
 
-    If ${field.name}Initialized Then 
+    If ${field.name}Initialized Then
         Set cmd = CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
         cmd.Parameters(0) = tmpId
         cmd.Execute
@@ -195,7 +195,7 @@ Sub Store()
         Dim ref As #type($field)
 
         For Each ref In ${field.name}List
-            If ref.id <= 0 Then Err.Raise 2, "${struct.name}Factory", "#type($field) is not in database"
+            If ref.id <= 0 Then ERR.Raise 2, "${struct.name}Factory", "#type($field) is not in database"
             
             Set cmd = CreateCommand("INSERT OR REPLACE INTO ${struct.name}_#type($field) VALUES (?, ?)")
             cmd.Parameters(0) = tmpId
@@ -215,9 +215,9 @@ End Sub
 
 
 Sub Remove()
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}", "Invalid connection"
     
-    If id <= 0 Then Err.Raise 2, "${struct.name}", "Object is not in database"
+    If id <= 0 Then ERR.Raise 2, "${struct.name}", "Object is not in database"
     
     connection.BeginTrans
     
@@ -230,10 +230,10 @@ Sub Remove()
 #foreach( $field in $struct.fields )
 #if( $field.list )
 
-    If ${field.name}Initialized Then 
-	    Set cmd = CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
-	    cmd.Parameters(0) = id
-	    cmd.Execute
+    If ${field.name}Initialized Then
+        Set cmd = CreateCommand("DELETE FROM ${struct.name}_#type($field) WHERE ${struct.name} == ?")
+        cmd.Parameters(0) = id
+        cmd.Execute
     End If
 #end
 #end
