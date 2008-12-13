@@ -23,7 +23,7 @@ Public connection As ADODB.connection
 
 
 Sub CreateTable()
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     connection.Execute _
         "CREATE TABLE IF NOT EXISTS ${struct.name} (" _
@@ -61,7 +61,7 @@ End Sub
 
 
 Sub DropTable()
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
 #foreach( $index in $struct.indexes )
     
     connection.Execute "DROP INDEX IF EXISTS INDEX_${struct.name}#foreach( $f in $index.fields )_$f#end"
@@ -69,7 +69,7 @@ Sub DropTable()
 #foreach( $field in $struct.fields )
 #if( $field.list )
     
-    connection.Execute"DROP TABLE IF EXISTS ${struct.name}_#type($field)"
+    connection.Execute "DROP TABLE IF EXISTS ${struct.name}_#type($field)"
 #end
 #end
     
@@ -77,8 +77,8 @@ Sub DropTable()
 End Sub
 
 
-Function Query(id as Long) As $struct.name
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+Function Query(id As Long) As $struct.name
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim ret As New $struct.name 
     ret.Load connection, OpenRecordset("SELECT * FROM ${struct.name} WHERE id = " & id)
@@ -88,44 +88,26 @@ End Function
 
 #if( $utils.hasNotList($struct) ) 
 Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Optional $field.name, #end#{end}Optional sortBy As String = "id ASC") As Collection
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
     
-    Dim sql as String    
+    Dim sql As String
     sql = "SELECT * FROM $struct.name "
     
     Dim hasWhere As Boolean
-    hasWhere = false
+    hasWhere = False
 #foreach( $field in $struct.fields )
 #if ( not $field.list )
     If Not IsMissing($field.name) And Not IsEmpty($field.name) Then
         sql = sql & IIf(hasWhere, "AND ", "WHERE ")
 #if( not $field.primitive )
-        sql = sql & "${field.name}ID == " & ${field.name}.id & " "
-#elseif( $field.string )
-        If TypeName($field.name) = "DataRange" Then
-            sql = sql & "$field.name >= """ & ${utils.convertionFunction($field)}(${field.name}.StartValue) & """ AND $field.name < """ & ${utils.convertionFunction($field)}(${field.name}.EndValue) & """ "
-        Else
-            sql = sql & "$field.name == """ & ${utils.convertionFunction($field)}($field.name) & """ " 
-        End If
+        sql = sql & "${field.name}ID == ? "
 #elseif( $field.type.name() == 'Boolean' )
-        sql = sql & "$field.name == " & IIf(${utils.convertionFunction($field)}($field.name), 1, 0) & " " 
-#elseif( $field.type.name() == 'DateTime' )
-        If TypeName($field.name) = "DataRange" Then
-            sql = sql & "$field.name >= " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.StartValue)) & " AND $field.name < " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.EndValue)) & " "
-        Else
-            sql = sql & "$field.name == " & DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name)) & " " 
-        End If
-#elseif( $field.type.name() == 'Currency' )
-        If TypeName($field.name) = "DataRange" Then
-            sql = sql & "$field.name >= " & CLng(${field.name}.StartValue * 100) & " AND $field.name < " & CLng(${field.name}.EndValue * 100) & " "
-        Else
-            sql = sql & "$field.name == " & CLng($field.name * 100) & " " 
-        End If
+        sql = sql & "${field.name} == ? "
 #else
         If TypeName($field.name) = "DataRange" Then
-            sql = sql & "$field.name >= " & ${utils.convertionFunction($field)}(${field.name}.StartValue) & " AND $field.name < " & ${utils.convertionFunction($field)}(${field.name}.EndValue) & " "
+            sql = sql & "$field.name >= ? AND $field.name < ? "
         Else
-            sql = sql & "$field.name == " & ${utils.convertionFunction($field)}($field.name) & " " 
+            sql = sql & "$field.name == ? "
         End If
 #end
         hasWhere = True
@@ -133,13 +115,62 @@ Function QueryAll(#foreach( $field in $struct.fields )#if ( not $field.list )Opt
 #end
 #end
     
-    sql = sql & "ORDER BY " & sortBy 
+    sql = sql & "ORDER BY " & sortBy
+    
+    Dim cmd As ADODB.Command
+    Set cmd = CreateCommand(sql)
+    
+    Dim bind As Integer
+    bind = 0
+#foreach( $field in $struct.fields )
+#if ( not $field.list )
+    If Not IsMissing($field.name) And Not IsEmpty($field.name) Then
+#if( not $field.primitive )
+        cmd.Parameters(bind) = ${field.name}.id
+        bind = bind + 1
+#elseif( $field.type.name() == 'Boolean' )
+        cmd.Parameters(bind) = IIf(${utils.convertionFunction($field)}($field.name), 1, 0)
+        bind = bind + 1
+#elseif( $field.type.name() == 'DateTime' )
+        If TypeName($field.name) = "DataRange" Then
+            cmd.Parameters(bind) = DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.StartValue))
+            bind = bind + 1
+            cmd.Parameters(bind) = DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}(${field.name}.EndValue))
+            bind = bind + 1
+        Else
+            cmd.Parameters(bind) = DateDiff("s", #1/1/1970#, ${utils.convertionFunction($field)}($field.name))
+            bind = bind + 1
+        End If
+#elseif( $field.type.name() == 'Currency' )
+        If TypeName($field.name) = "DataRange" Then
+            cmd.Parameters(bind) = CLng(${field.name}.StartValue * 100)
+            bind = bind + 1
+            cmd.Parameters(bind) = CLng(${field.name}.EndValue * 100)
+            bind = bind + 1
+        Else
+            cmd.Parameters(bind) = CLng($field.name * 100)
+            bind = bind + 1
+        End If
+#else
+        If TypeName($field.name) = "DataRange" Then
+            cmd.Parameters(bind) = ${utils.convertionFunction($field)}(${field.name}.StartValue)
+            bind = bind + 1
+            cmd.Parameters(bind) = ${utils.convertionFunction($field)}(${field.name}.EndValue)
+            bind = bind + 1
+        Else
+            cmd.Parameters(bind) = ${utils.convertionFunction($field)}($field.name)
+            bind = bind + 1
+        End If
+#end
+    End If
+#end
+#end
     
     Dim rs As ADODB.Recordset
-    Set rs = OpenRecordset(sql)
+    Set rs = cmd.Execute
     
-    Dim ret As New Collection 
-    Dim tmp as ${struct.name}
+    Dim ret As New Collection
+    Dim tmp As ${struct.name}
     Do Until rs.EOF
         Set tmp = New ${struct.name}
         tmp.Load connection, rs
@@ -152,7 +183,7 @@ End Function
 
 #else
 Function QueryAll() As Collection
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
     
     Dim rs As cRecordset 
     Set rs = OpenRecordset("SELECT * FROM ${struct.name} ORDER BY id ASC")
@@ -171,14 +202,14 @@ End Function
 
 #end
 Sub Store(obj As ${struct.name})
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
     obj.Connect connection
     obj.Store
 End Sub
 
 
 Sub Remove(obj As ${struct.name})
-    If connection Is Nothing Then Err.Raise 1, "${struct.name}Factory", "Invalid connection"
+    If connection Is Nothing Then ERR.Raise 1, "${struct.name}Factory", "Invalid connection"
     obj.Connect connection
     obj.Remove
 End Sub
@@ -192,5 +223,19 @@ Private Function OpenRecordset(sql As String) As ADODB.Recordset
     
     Set OpenRecordset = rs
 End Function
+
+
+Private Function CreateCommand(sql As String) As ADODB.Command
+    Dim cmd As ADODB.Command
+    Set cmd = New ADODB.Command
+    
+    Set cmd.ActiveConnection = connection
+    cmd.CommandType = adCmdText
+    cmd.CommandText = sql
+    
+    Set CreateCommand = cmd
+End Function
+
+
 
 
