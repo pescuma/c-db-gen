@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -23,6 +24,7 @@ import org.pescuma.cdbgen.outputer.OutputerValidationException;
 import org.pescuma.cdbgen.palm.PalmOutputer;
 import org.pescuma.cdbgen.palmconduit.PalmConduitOutputer;
 import org.pescuma.cdbgen.sqlite.SqliteOutputer;
+import org.pescuma.cdbgen.v8.V8Outputer;
 import org.pescuma.cdbgen.vb6_ADO.VB6ADOOutputer;
 import org.pescuma.cdbgen.vb6_dhSQLite.VB6DHOutputer;
 import org.pescuma.cdbgen.velocity.VelocityLogger;
@@ -58,6 +60,19 @@ public class CDBGen
 		public final ConfigItem palmConduit = new ConfigItem(new PalmConduitOutputer());
 		public final ConfigItem vb6_ADO = new ConfigItem(new VB6ADOOutputer());
 		public final ConfigItem vb6_dhSQLite = new ConfigItem(new VB6DHOutputer());
+		public final ConfigItem v8 = new ConfigItem(new V8Outputer());
+		
+		public final List<ConfigItem> items = new ArrayList<ConfigItem>();
+		
+		public Config()
+		{
+			items.add(sqlite);
+			items.add(palm);
+			items.add(palmConduit);
+			items.add(vb6_ADO);
+			items.add(vb6_dhSQLite);
+			items.add(v8);
+		}
 	}
 	
 	public static void main(String[] args)
@@ -112,22 +127,16 @@ public class CDBGen
 		}
 		
 		cfg.recFile = toFile(props.getProperty("recFile", ""));
-		get(cfg.sqlite, props);
-		get(cfg.palm, props);
-		get(cfg.palmConduit, props);
-		get(cfg.vb6_dhSQLite, props);
-		get(cfg.vb6_ADO, props);
+		for (ConfigItem item : cfg.items)
+			get(item, props);
 	}
 	
 	private static void saveToProperties(Config cfg)
 	{
 		Properties props = new Properties();
 		props.setProperty("recFile", toString(cfg.recFile));
-		set(props, cfg.sqlite);
-		set(props, cfg.palm);
-		set(props, cfg.palmConduit);
-		set(props, cfg.vb6_dhSQLite);
-		set(props, cfg.vb6_ADO);
+		for (ConfigItem item : cfg.items)
+			set(props, item);
 		
 		try
 		{
@@ -251,11 +260,29 @@ public class CDBGen
 		
 		for (Struct struct : structs)
 		{
-			processOutputer(cfg.recFile, cfg.sqlite, struct, structs);
-			processOutputer(cfg.recFile, cfg.palm, struct, structs);
-			processOutputer(cfg.recFile, cfg.palmConduit, struct, structs);
-			processOutputer(cfg.recFile, cfg.vb6_dhSQLite, struct, structs);
-			processOutputer(cfg.recFile, cfg.vb6_ADO, struct, structs);
+			for (ConfigItem item : cfg.items)
+				processOutputer(cfg.recFile, item, struct, structs);
+		}
+		for (ConfigItem item : cfg.items)
+			processGlobalOutputer(cfg.recFile, item, structs);
+	}
+	
+	private static void processGlobalOutputer(File rec, ConfigItem item, List<Struct> structs)
+	{
+		if (!item.enabled)
+			return;
+		try
+		{
+			item.outputer.globalOutput(structs, item.namespace, item.outputDir);
+		}
+		catch (OutputerException e)
+		{
+			System.err.println(rec.getName() + " : [" + item.outputer.getName() + "] Error creating files:");
+			e.printStackTrace();
+		}
+		catch (OutputerValidationException e)
+		{
+			System.out.println(rec.getName() + " : [" + item.outputer.getName() + "] " + e.getMessage());
 		}
 	}
 	
@@ -265,7 +292,7 @@ public class CDBGen
 			return;
 		try
 		{
-			item.outputer.output(struct, item.namespace, item.outputDir, structs);
+			item.outputer.output(struct, structs, item.namespace, item.outputDir);
 		}
 		catch (OutputerException e)
 		{

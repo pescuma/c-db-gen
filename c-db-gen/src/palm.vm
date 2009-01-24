@@ -16,7 +16,7 @@
 #set( $id = 1 )
 #foreach( $field in $struct.fields )
 #foreach( $flag in $field.flags )
-#define ${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)} $id
+#define ${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag.flag)} $id
 #set( $id = 2 * $id )
 #end
 #end
@@ -133,8 +133,8 @@ public:
 #end
 	}
 #foreach( $flag in $field.flags )
-#set( $define = "${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag)}" )
-#set( $var = $utils.toVariable($flag) )
+#set( $define = "${utils.toDefine($struct.name)}_${utils.toDefine($field.name)}_${utils.toDefine($flag.flag)}" )
+#set( $var = $utils.toVariable($flag.flag) )
 	Boolean is#fu($var)()
 	{
 		return ($utils.getGetterName($field)() & $define) == $define;

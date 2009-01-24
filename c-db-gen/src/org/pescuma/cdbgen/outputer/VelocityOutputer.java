@@ -15,11 +15,14 @@ import org.pescuma.cdbgen.Utils;
 
 public abstract class VelocityOutputer implements Outputer
 {
-	public void output(Struct struct, String namespace, File path, List<Struct> structs)
+	public void output(Struct struct, List<Struct> structs, String namespace, File path)
 	{
 		validate(struct);
 		
 		String[] templateNames = getTemplateNames();
+		if (templateNames == null)
+			return;
+		
 		File[] files = getFilenames(struct, path);
 		
 		if (templateNames.length != files.length)
@@ -93,5 +96,57 @@ public abstract class VelocityOutputer implements Outputer
 	protected Utils getUtils()
 	{
 		return new Utils();
+	}
+	
+	public void globalOutput(List<Struct> structs, String namespace, File path)
+	{
+		String[] templateNames = getGlobalTemplateNames();
+		if (templateNames == null)
+			return;
+		
+		File[] files = getGlobalFilenames(path);
+		
+		if (templateNames.length != files.length)
+			throw new IllegalStateException();
+		
+		for (int i = 0; i < files.length; i++)
+		{
+			try
+			{
+				VelocityContext context = new VelocityContext();
+				addVariables(context, null, namespace, structs);
+				
+				Template template = Velocity.getTemplate(templateNames[i]);
+				
+				File file = files[i];
+				File parentFile = file.getParentFile();
+				if (!parentFile.exists() && !parentFile.mkdirs())
+					throw new OutputerException("Could not create the output path");
+				
+				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), getEncoding()));
+				try
+				{
+					template.merge(context, out);
+				}
+				finally
+				{
+					out.close();
+				}
+			}
+			catch (Exception e)
+			{
+				throw new OutputerException(e);
+			}
+		}
+	}
+	
+	protected String[] getGlobalTemplateNames()
+	{
+		return null;
+	}
+	
+	protected File[] getGlobalFilenames(File path)
+	{
+		return null;
 	}
 }

@@ -9,16 +9,20 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.pescuma.cdbgen.StructField.Flag;
+
 public class RecParser
 {
-	private static final Pattern newStruct = Pattern.compile("^\\s*struct\\s+([a-zA-Z][_0-9a-zA-Z]*)\\s*\\{?\\s*$");
+	private static final Pattern newStruct = Pattern.compile("^\\s*struct\\s+([a-zA-Z][_0-9a-zA-Z]*)\\s*(:\\s*([a-zA-Z][_0-9a-zA-Z]*)\\s*)?\\{?\\s*$");
 	private static final Pattern startStruct = Pattern.compile("^\\s*\\{\\s*$");
 	private static final String var = "[a-zA-Z][_0-9a-zA-Z]*";
 	private static final String type = "Char|Boolean|Int8|UInt8|Int16|UInt16|Int32|UInt32";
-	private static final Pattern field = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*(\\[([0-9]+)\\])?\\s*;\\s*$");
-	private static final Pattern flagField = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*((\\|\\s*" + var + "\\s*)+);\\s*$");
+	private static final Pattern field = Pattern.compile("^\\s*(const\\s+)?(" + type + ")\\s+(" + var + ")\\s*(\\[([0-9]+)\\])?\\s*;\\s*$");
+	private static final Pattern flagField = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*((\\|\\s*" + var + "\\s*(\"" + var
+			+ "\"\\s*)?)+);\\s*$");
 	private static final Pattern listField = Pattern.compile("^\\s*List<\\s*(" + var + ")\\s*>\\s+(" + var + ")\\s*;\\s*$");
-	private static final Pattern referenceField = Pattern.compile("^\\s*(" + var + ")\\s+(" + var + ")\\s*;\\s*$");
+	private static final Pattern referenceField = Pattern.compile("^\\s*(" + var + ")\\s+(" + var
+			+ ")\\s*(\\[setter:\\s*([^\\]]+)\\]\\s*)?;\\s*$");
 	private static final Pattern index = Pattern.compile("^\\s*INDEX\\s*\\((\\s*" + var + "\\s*(,\\s*" + var + "\\s*)*)\\)\\s*;\\s*$");
 	private static final Pattern endStruct = Pattern.compile("^\\s*\\}\\s*;?\\s*$");
 	
@@ -44,6 +48,7 @@ public class RecParser
 				{
 					cur = new Struct();
 					cur.name = m.group(1);
+					cur.parentName = m.group(3);
 					structs.add(cur);
 					continue;
 				}
@@ -94,9 +99,19 @@ public class RecParser
 						throw new IllegalArgumentException("Unknown field: " + f);
 			}
 			
+			if (s.parentName != null)
+				s.parent = findStruct(structs, s.parentName);
 		}
 		
 		return structs;
+	}
+	
+	private Struct findStruct(List<Struct> structs, String name)
+	{
+		for (Struct s : structs)
+			if (s.name.equals(name))
+				return s;
+		return null;
 	}
 	
 	private boolean isStartStruct(String line)
@@ -136,9 +151,12 @@ public class RecParser
 		
 		StructField f = new StructField();
 		f.name = m.group(2);
+		f.setterCode = m.group(4);
+		
 		try
 		{
 			f.type = StructField.Type.valueOf(m.group(1));
+			
 		}
 		catch (IllegalArgumentException e)
 		{
@@ -183,9 +201,18 @@ public class RecParser
 		String[] flags = m.group(3).split("\\|");
 		for (int i = 0; i < flags.length; i++)
 		{
-			String fn = flags[i].trim();
-			if (!fn.isEmpty())
-				f.flags.add(fn);
+			String flag = flags[i].trim();
+			String name = null;
+			
+			int pos = flag.indexOf('"');
+			if (pos >= 0)
+			{
+				name = flag.substring(pos + 1).replace('"', ' ').trim();
+				flag = flag.substring(0, pos).trim();
+			}
+			
+			if (!flag.isEmpty())
+				f.flags.add(new Flag(flag, name));
 		}
 		cur.fields.add(f);
 		return true;
@@ -198,9 +225,14 @@ public class RecParser
 			return false;
 		
 		StructField f = new StructField();
-		f.name = m.group(2);
-		f.type = StructField.Type.valueOf(m.group(1));
-		String arr = m.group(4);
+		String readOnly = m.group(1);
+		if (readOnly == null)
+			readOnly = "";
+		readOnly = readOnly.trim();
+		f.readOnly = !readOnly.isEmpty();
+		f.name = m.group(3);
+		f.type = StructField.Type.valueOf(m.group(2));
+		String arr = m.group(5);
 		if (arr == null)
 			f.array = 0;
 		else

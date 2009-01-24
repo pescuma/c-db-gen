@@ -1,0 +1,161 @@
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( getter $field )$utils.getGetterName($field)#end
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( fl $var )$utils.firstLower($var)#end
+#macro( templ $var )#fl($var.name)Template#end
+\#include "globals.h"
+\#include <v8.h>
+\#include "V8Templates.h"
+#foreach( $struct in $structs )
+#if( $struct.fields.size() > 0 )
+\#include "${struct.name}_v8_wrapper.h"
+#end
+#end
+
+using namespace v8;
+
+#if( $namespace != '' )
+namespace $namespace
+{
+
+
+#end
+
+V8Templates::V8Templates()
+{
+}
+
+V8Templates::~V8Templates()
+{
+#foreach( $struct in $structs )
+#if( $struct.fields.size() > 0 )
+	#templ($struct).Dispose();
+#end
+#end
+}
+
+
+Handle<ObjectTemplate> V8Templates::getGlobalTemplate()
+{
+	HandleScope scope;
+	
+	if (!globalTemplate.IsEmpty())
+		return globalTemplate; 
+	
+	Handle<ObjectTemplate> templ = ObjectTemplate::New();
+#foreach( $struct in $structs )
+#foreach( $field in $struct.fields )
+#foreach( $flag in $field.flags )
+	templ->Set(String::New("$flag.flag"), String::New("$flag.flag"));
+#if( $flag.name )
+	templ->Set(String::New("$flag.name"), String::New("$flag.flag"));
+#end
+#end
+#end
+#end
+	addGlobalTemplateFields(templ);
+	
+	globalTemplate = Persistent<ObjectTemplate>::New(templ);
+	
+	return globalTemplate;
+}
+
+
+void V8Templates::addGlobalTemplateFields(Handle<ObjectTemplate> &templ)
+{
+}
+
+
+#foreach( $struct in $structs )
+#if( $struct.fields.size() > 0 )
+int V8Templates::numOf#fu($struct.name)InternalFields()
+{
+	return 1;
+}
+
+#end
+Handle<ObjectTemplate> V8Templates::get#fu($struct.name)Template()
+{
+#if( $struct.fields.size() <= 0 )
+	return get#fu($struct.parent.name)Template();
+#else 
+	HandleScope scope;
+	
+	if (!#templ($struct).IsEmpty())
+		return #templ($struct); 
+	
+	Handle<ObjectTemplate> templ = ObjectTemplate::New();
+	templ->SetInternalFieldCount(numOf#fu($struct.name)InternalFields());
+#foreach( $st in $struct.hierarchy )
+	Add${st.name}Acessors(templ);
+#end
+	add#fu($struct.name)TemplateFields(templ);
+	
+	#templ($struct) = Persistent<ObjectTemplate>::New(templ);
+	
+	return #templ($struct);
+#end 
+}
+
+#if( $struct.fields.size() > 0 )
+void V8Templates::add#fu($struct.name)TemplateFields(Handle<ObjectTemplate> &templ)
+{
+}
+
+#end
+Handle<Object> V8Templates::new#fu($struct.name)()
+{
+#if( $struct.fields.size() <= 0 )
+	return new#fu($struct.parent.name)();
+#else 
+	HandleScope scope;
+	
+	Handle<Object> obj = get#fu($struct.name)Template()->NewInstance();
+#foreach( $st in $struct.hierarchy )
+#foreach( $field in $st.fields )
+#if( !$field.primitive )
+#if( $field.setterCode )
+	obj->Set(String::New("${field.name}Raw"), new#fu($field.typeName)(), ReadOnly);
+#else
+	obj->Set(String::New("$field.name"), new#fu($field.typeName)(), ReadOnly);
+#end
+#end
+#end
+#end
+	
+	return scope.Close(obj);
+#end
+}
+
+void V8Templates::fill#fu($struct.name)(Handle<Object> v8Obj, $struct.name *obj)
+{
+#if( $struct.fields.size() <= 0 )
+	fill#fu($struct.parent.name)(v8Obj, obj);
+#else 
+	HandleScope scope;
+	
+	_ASSERT(!v8Obj.IsEmpty());
+
+	v8Obj->SetInternalField(0, External::New(obj));
+#foreach( $st in $struct.hierarchy )
+#foreach( $field in $st.fields )
+#if( !$field.primitive )
+#if( $field.setterCode )
+	fill#fu($field.typeName)(Handle<Object>::Cast(v8Obj->Get(String::New("${field.name}Raw"))), obj->#getter($field)());
+#else
+	fill#fu($field.typeName)(Handle<Object>::Cast(v8Obj->Get(String::New("$field.name"))), obj->#getter($field)());
+#end
+#end
+#end
+#end
+#end
+}
+
+	
+#end
+#if( $namespace != '' )
+
+
+
+}
+#end

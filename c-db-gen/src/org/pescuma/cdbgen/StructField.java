@@ -7,6 +7,28 @@ import java.util.List;
 
 public class StructField
 {
+	public static class Flag
+	{
+		public final String flag;
+		public final String name;
+		
+		public Flag(String flag, String name)
+		{
+			this.flag = flag;
+			this.name = name;
+		}
+		
+		public String getFlag()
+		{
+			return flag;
+		}
+		
+		public String getName()
+		{
+			return name;
+		}
+	}
+	
 	public static enum Type
 	{
 		Char,
@@ -21,16 +43,28 @@ public class StructField
 		Currency
 	};
 	
+	public boolean readOnly;
 	public Type type;
 	public String typeName;
+	public String setterCode;
 	public int array;
 	public boolean list;
 	public String name;
-	public final List<String> flags = new ArrayList<String>();
+	public final List<Flag> flags = new ArrayList<Flag>();
 	
 	public Type getType()
 	{
 		return type;
+	}
+	
+	public String getTypeName()
+	{
+		return typeName;
+	}
+	
+	public String getSetterCode()
+	{
+		return setterCode;
 	}
 	
 	public int getArray()
@@ -53,14 +87,24 @@ public class StructField
 		return name;
 	}
 	
-	public List<String> getFlags()
+	public List<Flag> getFlags()
 	{
 		return flags;
+	}
+	
+	public boolean hasFlags()
+	{
+		return flags.size() > 0;
 	}
 	
 	public boolean isString()
 	{
 		return type == Char && array > 0;
+	}
+	
+	public boolean isReadOnly()
+	{
+		return readOnly;
 	}
 	
 	@Override

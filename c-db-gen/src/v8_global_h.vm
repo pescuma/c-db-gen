@@ -1,0 +1,63 @@
+#macro( fu $var )$utils.firstUpper($var)#end
+#macro( fl $var )$utils.firstLower($var)#end
+#macro( templ $var )#fl($var.name)Template#end
+#set( $fileDefine = "__V8_TEMPLATES_H__" )
+#ifndef $fileDefine
+# define $fileDefine
+
+\#include <v8.h>
+#foreach( $struct in $structs )
+\#include "${struct.name}.h"
+#end
+
+
+#if( $namespace != '' )
+namespace $namespace
+{
+
+
+#end
+class V8Templates
+{
+public:
+	V8Templates();
+	virtual ~V8Templates();
+	
+	virtual v8::Handle<v8::ObjectTemplate> getGlobalTemplate();
+	
+#foreach( $struct in $structs )
+	virtual v8::Handle<v8::ObjectTemplate> get#fu($struct.name)Template();
+	virtual v8::Handle<v8::Object> new#fu($struct.name)();
+	virtual void fill#fu($struct.name)(v8::Handle<v8::Object> v8Obj, $struct.name *obj);
+	
+#end
+
+private:
+	v8::Persistent<v8::ObjectTemplate> globalTemplate;
+#foreach( $struct in $structs )
+#if( $struct.fields.size() > 0 )
+	v8::Persistent<v8::ObjectTemplate> #templ($struct);
+#end
+#end
+
+protected:
+	virtual void addGlobalTemplateFields(v8::Handle<v8::ObjectTemplate> &templ);
+
+#foreach( $struct in $structs )
+#if( $struct.fields.size() > 0 )
+	virtual int numOf#fu($struct.name)InternalFields();
+	virtual void add#fu($struct.name)TemplateFields(v8::Handle<v8::ObjectTemplate> &templ);
+	
+#end
+#end
+};
+#if( $namespace != '' )
+
+
+
+}
+#end
+
+
+
+#endif // $fileDefine

@@ -9,5 +9,7 @@ public interface Outputer
 {
 	String getName();
 	
-	void output(Struct struct, String namespace, File path, List<Struct> structs);
+	void output(Struct struct, List<Struct> structs, String namespace, File path);
+	
+	void globalOutput(List<Struct> structs, String namespace, File outputDir);
 }

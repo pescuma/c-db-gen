@@ -151,4 +151,9 @@ public class Utils
 				return field;
 		return null;
 	}
+	
+	public static boolean hasField(Struct struct, String fieldName)
+	{
+		return findField(struct, fieldName) != null;
+	}
 }

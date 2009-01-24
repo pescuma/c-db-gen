@@ -1,0 +1,173 @@
+#macro( setter $field )$utils.getSetterName($field)#end
+#macro( getter $field )$utils.getGetterName($field)#end
+\#include "globals.h"
+\#include "${struct.name}_v8_wrapper.h"
+\#include <v8.h>
+\#include "${struct.name}.h"
+#if( $utils.hasString($struct) )
+\#include <utf8_helpers.h>
+#end
+
+using namespace v8;
+
+#if( $namespace != '' )
+namespace $namespace
+{
+
+
+#end
+
+#ifdef UNICODE
+# define V8_TCHAR uint16_t
+\#else
+# define V8_TCHAR char
+#endif
+
+#foreach( $field in $struct.fields )
+#if( $field.primitive )
+
+static Handle<Value> Get_${struct.name}_${field.name}(Local<String> property, const AccessorInfo &info) 
+{
+	HandleScope scope;
+	
+	Local<Object> self = info.Holder();
+	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+	if (wrap.IsEmpty())
+		return scope.Close( Undefined() );
+
+	${struct.name} *tmp = (${struct.name} *) wrap->Value();
+	if (tmp == NULL)
+		return scope.Close( Undefined() );
+
+#if( $field.string )
+	return scope.Close( String::New((const V8_TCHAR *) tmp->#getter($field)()) );
+#elseif( $field.type.name() == 'Boolean' )
+	return scope.Close( Boolean::New(tmp->#getter($field)()) );
+#elseif( $field.hasFlags() )
+	switch(tmp->#getter($field)())
+	{
+#foreach( $flag in $field.flags )
+#if( $flag.name )
+		case $flag.flag: return scope.Close( String::New((const V8_TCHAR *) _T("$flag.name")) );
+#else
+		case $flag.flag: return scope.Close( String::New((const V8_TCHAR *) _T("$flag.flag")) );
+#end
+#end
+	}
+	return scope.Close( Undefined() );
+#elseif( $field.type.name() == 'Int32' )
+	return scope.Close( Int32::New(tmp->#getter($field)()) );
+#elseif( $field.type.name() == 'UInt32' )
+	return scope.Close( Uint32::New(tmp->#getter($field)()) );
+#end
+}
+
+#if( not $field.readOnly )
+static void Set_${struct.name}_${field.name}(Local<String> property, Local<Value> value, const AccessorInfo& info) 
+{
+	HandleScope scope;
+	
+	Local<Object> self = info.Holder();
+	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+	if (wrap.IsEmpty())
+		return;
+
+	${struct.name} *tmp = (${struct.name} *) wrap->Value();
+	if (tmp == NULL)
+		return;
+
+#if( $field.string )
+	if (!value.IsEmpty() && value->IsString())
+	{
+		String::Utf8Value utf8_value(value);
+		tmp->#setter($field)(Utf8ToTchar(*utf8_value));
+	}
+#elseif( $field.type.name() == 'Boolean' )
+	if (!value.IsEmpty() && value->IsBoolean())
+		tmp->#setter($field)(value->BooleanValue());
+#elseif( $field.hasFlags() )
+	if (!value.IsEmpty() && value->IsString())
+	{
+		String::Utf8Value utf8_value(value);
+		Utf8ToTchar tval(*utf8_value);
+#set( $i = 0 )
+#foreach( $flag in $field.flags )
+		#if( $i > 0 )else #{end}if ( lstrcmpi(_T("$flag.flag"), tval) == 0 )
+			tmp->#setter($field)($flag.flag);
+#if( $flag.name )
+		else if ( lstrcmpi(_T("$flag.name"), tval) == 0 )
+			tmp->#setter($field)($flag.flag);
+#end
+#set( $i = $i + 1 )
+#end
+	}
+#elseif( $field.type.name() == 'Int32' )
+	if (!value.IsEmpty() && value->IsInt32())
+		tmp->#setter($field)(value->Int32Value());
+#elseif( $field.type.name() == 'UInt32' )
+	if (!value.IsEmpty() && value->IsUint32())
+		tmp->#setter($field)(value->Uint32Value());
+#end
+}
+
+#end
+#elseif( $field.setterCode )
+
+static Handle<Value> Get_${struct.name}_${field.name}(Local<String> property, const AccessorInfo &info) 
+{
+	HandleScope scope;
+	
+	Local<Object> self = info.Holder();
+	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+	if (wrap.IsEmpty())
+		return scope.Close( Undefined() );
+
+	${struct.name} *tmp = (${struct.name} *) wrap->Value();
+	if (tmp == NULL)
+		return scope.Close( Undefined() );
+	
+	return scope.Close( self->Get(String::New("${field.name}Raw")) );
+}
+
+static void Set_${struct.name}_${field.name}(Local<String> property, Local<Value> value, const AccessorInfo& info) 
+{
+	HandleScope scope;
+	
+	Local<Object> self = info.Holder();
+	Local<External> wrap = Local<External>::Cast(self->GetInternalField(0));
+	if (wrap.IsEmpty())
+		return;
+
+	${struct.name} *tmp = (${struct.name} *) wrap->Value();
+	if (tmp == NULL)
+		return;
+
+	$field.setterCode.replace("\n", "
+").replace("\t", "		")
+}
+
+#end
+#end
+
+void Add${struct.name}Acessors(Handle<ObjectTemplate> &templ)
+{
+	HandleScope scope;
+	
+#foreach( $field in $struct.fields )
+#if( $field.primitive )
+#if( $field.readOnly )
+	templ->SetAccessor(String::New("${field.name}"), Get_${struct.name}_${field.name}, NULL, Handle<Value>(), DEFAULT, ReadOnly);
+#else
+	templ->SetAccessor(String::New("${field.name}"), Get_${struct.name}_${field.name}, Set_${struct.name}_${field.name});
+#end
+#elseif( $field.setterCode )
+	templ->SetAccessor(String::New("${field.name}"), Get_${struct.name}_${field.name}, Set_${struct.name}_${field.name});
+#end
+#end
+}
+#if( $namespace != '' )
+
+
+
+}
+#end
