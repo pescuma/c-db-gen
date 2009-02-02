@@ -51,6 +51,7 @@ public class StructField
 	public boolean list;
 	public String name;
 	public final List<Flag> flags = new ArrayList<Flag>();
+	public String defVal;
 	
 	public Type getType()
 	{
@@ -105,6 +106,31 @@ public class StructField
 	public boolean isReadOnly()
 	{
 		return readOnly;
+	}
+	
+	public String getDefVal()
+	{
+		if (defVal != null)
+			return defVal;
+		
+		switch (type)
+		{
+			case Boolean:
+				return "false";
+			case Char:
+				return "'\\0'";
+			case Currency:
+			case DateTime:
+			case Int8:
+			case Int16:
+			case Int32:
+			case UInt8:
+			case UInt16:
+			case UInt32:
+				return "0";
+		}
+		
+		throw new IllegalStateException();
 	}
 	
 	@Override

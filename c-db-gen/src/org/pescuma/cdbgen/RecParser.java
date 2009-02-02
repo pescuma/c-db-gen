@@ -17,7 +17,8 @@ public class RecParser
 	private static final Pattern startStruct = Pattern.compile("^\\s*\\{\\s*$");
 	private static final String var = "[a-zA-Z][_0-9a-zA-Z]*";
 	private static final String type = "Char|Boolean|Int8|UInt8|Int16|UInt16|Int32|UInt32";
-	private static final Pattern field = Pattern.compile("^\\s*(const\\s+)?(" + type + ")\\s+(" + var + ")\\s*(\\[([0-9]+)\\])?\\s*;\\s*$");
+	private static final Pattern field = Pattern.compile("^\\s*(const\\s+)?(" + type + ")\\s+(" + var
+			+ ")\\s*(\\[([0-9]+)\\])?\\s*(\\[\\s*default:\\s*((\\\"[^\\\"]*\\\")|([a-zA-Z0-9_]+))\\s*\\])?;\\s*$");
 	private static final Pattern flagField = Pattern.compile("^\\s*(" + type + ")\\s+(" + var + ")\\s*((\\|\\s*" + var + "\\s*(\"" + var
 			+ "\"\\s*)?)+);\\s*$");
 	private static final Pattern listField = Pattern.compile("^\\s*List<\\s*(" + var + ")\\s*>\\s+(" + var + ")\\s*;\\s*$");
@@ -237,6 +238,7 @@ public class RecParser
 			f.array = 0;
 		else
 			f.array = Integer.parseInt(arr);
+		f.defVal = m.group(7);
 		cur.fields.add(f);
 		return true;
 	}

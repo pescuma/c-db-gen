@@ -102,10 +102,10 @@ static void Set_${struct.name}_${field.name}(Local<String> property, Local<Value
 #end
 	}
 #elseif( $field.type.name() == 'Int32' )
-	if (!value.IsEmpty() && value->IsInt32())
+	if (!value.IsEmpty() && value->IsNumber())
 		tmp->#setter($field)(value->Int32Value());
 #elseif( $field.type.name() == 'UInt32' )
-	if (!value.IsEmpty() && value->IsUint32())
+	if (!value.IsEmpty() && value->IsNumber())
 		tmp->#setter($field)(value->Uint32Value());
 #end
 }

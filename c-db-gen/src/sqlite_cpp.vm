@@ -84,13 +84,11 @@ ${struct.name}::${struct.name}(sqlite::Database *db)#set( $i = 0 )#foreach( $fie
 	${field.name}Initialized = true;
 #elseif( not $field.primitive )
 #elseif( $field.string )
-	${field.name} = _T("");
+	${field.name} = _T($field.defVal);
 #elseif( $field.array > 0 )
-	memset(${field.name}, 0, ${field.array} * sizeof(#type($field))); 
-#elseif( $field.type.name() == 'Boolean' )
-	$field.name = false;
+	memset(${field.name}, $field.defVal, ${field.array} * sizeof(#type($field))); 
 #else
-	$field.name = 0;
+	$field.name = $field.defVal;
 #end
 #end
 }
@@ -130,6 +128,12 @@ std::vector<#type($field)> & ${struct.name}::${field.name}()
 
 #end
 #end
+void ${struct.name}::connectTo(sqlite::Database *db)
+{
+	this->db = db;
+}
+
+
 void ${struct.name}::store()
 {
 	store(db, this);
@@ -138,32 +142,123 @@ void ${struct.name}::store()
 
 void ${struct.name}::remove()
 {
-	delete(db, this);
+	remove(db, this);
 }
 
+
+bool ${struct.name}::isStored()
+{
+	return id > 0;
+}
 
 
 void ${struct.name}::createTable(sqlite::Database *db)
 {
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
-
-	db->execute(
-		_T("CREATE TABLE IF NOT EXISTS ${struct.name} (")
-			_T("id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
+	
+	sqlite::Transaction trans(db);
+	
+	std::tstring oldTable;
+	{
+		sqlite::Statement stmt = db->prepare(_T("SELECT sql FROM sqlite_master WHERE type == 'table' AND name = '${struct.name}'"));
+		if (stmt.step())
+			stmt.getColumn(0, &oldTable);
+	}
+	
+	if (oldTable.length() > 0)
+	{
+		bool rebuild = false;
+		
+#set( $i = 0 )
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#set( $i = $i + 1 )
+#if( not $field.primitive )
+		#if( $i > 1 )else #{end}if (oldTable.find(_T(", ${field.name}ID ")) == (size_t) -1)
+			rebuild = true;
+#else
+		#if( $i > 1 )else #{end}if (oldTable.find(_T(", ${field.name} ")) == (size_t) -1)
+			rebuild = true;
+#end
+#end
+#end
+		
+		if(rebuild)
+		{
+			db->execute(_T("ALTER TABLE ${struct.name} RENAME TO TMP_OLD_${struct.name}"));
+			
+			db->execute(
+				_T("CREATE TABLE ${struct.name} (")
+					_T("id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
 #if( not $field.list )
 #if( not $field.primitive )
 , ")
-			_T("${field.name}ID INTEGER#elseif( $field.string )
+					_T("${field.name}ID INTEGER#elseif( $field.string )
 , ")
-			_T("$field.name VARCHAR#else
+					_T("$field.name VARCHAR NOT NULL DEFAULT $field.defVal#elseif( $field.type.name() == 'Boolean' )
 , ")
-			_T("$field.name INTEGER#end
+					_T("$field.name VARCHAR NOT NULL DEFAULT #if($field.defVal.toLowerCase() == 'false')0#{else}1#end#else
+, ")
+					_T("$field.name INTEGER NOT NULL DEFAULT $field.defVal#end
 #end
 #end
 ")
-		_T(")")
-	);
+				_T(")")
+			);
+			
+			std::tstring sql = _T("INSERT INTO ${struct.name}(id");
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( not $field.primitive )
+			if (oldTable.find(_T(", ${field.name}ID ")) != (size_t) -1)
+				sql += _T(", ${field.name}ID");
+#else
+			if (oldTable.find(_T(", ${field.name} ")) != (size_t) -1)
+				sql += _T(", ${field.name}");
+#end
+#end
+#end
+			sql += _T(") SELECT id");
+#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( not $field.primitive )
+			if (oldTable.find(_T(", ${field.name}ID ")) != (size_t) -1)
+				sql += _T(", ${field.name}ID");
+#else
+			if (oldTable.find(_T(", ${field.name} ")) != (size_t) -1)
+				sql += _T(", ${field.name}");
+#end
+#end
+#end
+			sql += _T(" FROM TMP_OLD_${struct.name}");
+			
+			db->execute(sql.c_str());
+			
+			db->execute(_T("DROP TABLE TMP_OLD_${struct.name}"));
+		}
+	}
+	else
+	{
+		db->execute(
+			_T("CREATE TABLE IF NOT EXISTS ${struct.name} (")
+				_T("id INTEGER PRIMARY KEY#foreach( $field in $struct.fields )
+#if( not $field.list )
+#if( not $field.primitive )
+, ")
+				_T("${field.name}ID INTEGER#elseif( $field.string )
+, ")
+				_T("$field.name VARCHAR NOT NULL DEFAULT $field.defVal#elseif( $field.type.name() == 'Boolean' )
+, ")
+				_T("$field.name VARCHAR NOT NULL DEFAULT #if($field.defVal.toLowerCase() == 'false')0#{else}1#end#else
+, ")
+				_T("$field.name INTEGER NOT NULL DEFAULT $field.defVal#end
+#end
+#end
+")
+			_T(")")
+		);
+	}
 #foreach( $field in $struct.fields )
 #if( $field.list )
 	
@@ -182,6 +277,8 @@ void ${struct.name}::createTable(sqlite::Database *db)
 #if( $i > 0), #end${field}#set( $i = $i + 1 )
 #end)"));
 #end
+	
+	trans.commit();
 }
 
 
@@ -236,7 +333,7 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db)
 
 
 #if( $utils.hasNotList($struct) ) 
-std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), #type($field) *p#fu($field.name)#end#end, std::string *pOrderBy)
+std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach( $field in $struct.fields )#if ( not $field.list ), sqlite::Range<#type($field)> p#fu($field.name)#end#end, const TCHAR *pOrderBy)
 {
 	if (db == NULL)
 		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Invalid database"));
@@ -248,10 +345,27 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach(
 	bool hasWhere = false;
 #foreach( $field in $struct.fields )
 #if ( not $field.list )
-	if (p#fu($field.name) != NULL)
+#if( not $field.primitive )
+#set( $dbfield = "${field.name}ID" )
+#else
+#set( $dbfield = "${field.name}" )
+#end
+	if (!p#fu($field.name).isNull())
 	{
 		sql += ( hasWhere ? _T("AND ") : _T("WHERE ") );
-		sql += "$field.name == ? ";
+		if (p#fu($field.name).isSingleValue())
+		{
+			sql += _T("$dbfield == ? ");
+		}
+		else
+		{
+			if (p#fu($field.name).hasStart())
+				sql += _T("$dbfield >= ? ");
+			if (p#fu($field.name).hasStart() && p#fu($field.name).hasEnd())
+				sql += _T("AND ");
+			if (p#fu($field.name).hasEnd())
+				sql += _T("$dbfield < ? ");
+		}
 		hasWhere = true;
 	}
 #end
@@ -261,29 +375,52 @@ std::vector<$struct.name> ${struct.name}::queryAll(sqlite::Database *db#foreach(
 	if (pOrderBy == NULL)
 		sql += _T("id ASC");
 	else
-		sql += *pOrderBy;
+		sql += pOrderBy;
 	
 	sqlite::Statement stmt = db->prepare(sql.c_str());
 	
 	int bind = 1;
 #foreach( $field in $struct.fields )
 #if( not $field.list )
-	if (p#fu($field.name) != NULL)
+	if (!p#fu($field.name).isNull())
+	{
 #if( not $field.primitive )
-		stmt.bind(bind++, p#fu($field.name)->id);
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, p#fu($field.name).start().id);
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, p#fu($field.name).end().id);
 #elseif( $field.string )
-		stmt.bind(bind++, p#fu($field.name)->c_str());
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, p#fu($field.name).start().c_str());
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, p#fu($field.name).end().c_str());
 #elseif( $field.type.name() == 'Boolean' )
-		stmt.bind(bind++, *p#fu($field.name) ? 1 : 0);
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, p#fu($field.name).start() ? 1 : 0);
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, p#fu($field.name).end() ? 1 : 0);
 #elseif( $field.type.name() == 'Int32' )
-		stmt.bind(bind++, *p#fu($field.name));
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, p#fu($field.name).start());
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, p#fu($field.name).end());
 #elseif( $field.type.name() == 'DateTime' )
-		stmt.bind(bind++, (sqlite3_int64) *p#fu($field.name));
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, (sqlite3_int64) p#fu($field.name).start());
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, (sqlite3_int64) p#fu($field.name).end());
 #elseif( $field.type.name() == 'Currency' )
-		stmt.bind(bind++, *p#fu($field.name));
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, p#fu($field.name).start());
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, p#fu($field.name).end());
 #else
-		stmt.bind(bind++, (int) *p#fu($field.name));
+		if (p#fu($field.name).hasStart())
+			stmt.bind(bind++, (int) p#fu($field.name).start());
+		if (!p#fu($field.name).isSingleValue() && p#fu($field.name).hasEnd())
+			stmt.bind(bind++, (int) p#fu($field.name).end());
 #end
+	}
 #end
 #end
 	
@@ -339,7 +476,7 @@ void ${struct.name}::store(sqlite::Database *db, ${struct.name} *obj)
 	}
 	
 	if (update && id != obj->id)
-		throw sqlite::DatabaseException(SQLITE_ERROR, "Wrong id");
+		throw sqlite::DatabaseException(SQLITE_ERROR, _T("Wrong id"));
 #foreach( $field in $struct.fields )
 #if( $field.list )
 	
