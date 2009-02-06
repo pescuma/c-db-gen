@@ -113,12 +113,15 @@ public class StructField
 		if (defVal != null)
 			return defVal;
 		
+		if (isString())
+			return "''";
+		
 		switch (type)
 		{
 			case Boolean:
 				return "false";
 			case Char:
-				return "'\\0'";
+				return "'\\\\0'";
 			case Currency:
 			case DateTime:
 			case Int8:
