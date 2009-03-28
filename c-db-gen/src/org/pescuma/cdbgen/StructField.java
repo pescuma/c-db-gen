@@ -114,7 +114,7 @@ public class StructField
 			return defVal;
 		
 		if (isString())
-			return "''";
+			return "\"\"";
 		
 		switch (type)
 		{

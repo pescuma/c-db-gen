@@ -85,23 +85,28 @@ End Property
 
 
 Sub Load(cnn As ADODB.connection, rs As ADODB.Recordset)
+    Dim tmp
+    
     Set connection = cnn
     id = CLng(rs("id"))
 #foreach( $field in $struct.fields )
 #if( $field.list )
     ${field.name}Initialized = False
 #elseif( not $field.primitive )
-    If CLng(rs("${field.name}ID")) > 0 Then
+    tmp = rs("${field.name}ID")
+    If CLng(IIf(IsNull(tmp), 0, tmp)) > 0 Then
         Dim tmpFactory As New #type($field)Factory
         Set tmpFactory.connection = cnn
-        Set ${field.name} = tmpFactory.Query(CLng(rs("${field.name}ID")))
+        Set ${field.name} = tmpFactory.Query(CLng(tmp))
     End If
 #elseif( $field.type.name() == 'DateTime' )
-    $field.name = DateAdd("s", CLng(rs("$field.name")), #1/1/1970#)
+    tmp = rs("$field.name")
+    $field.name = DateAdd("s", CLng(IIf(IsNull(tmp), $field.defVal, tmp)), #1/1/1970#)
 #elseif( $field.type.name() == 'Currency' )
-    $field.name = CCur(rs("$field.name") / 100)
+    $field.name = CCur(IIf(IsNull(tmp), $field.defVal, tmp) / 100)
 #else
-    $field.name = ${utils.convertionFunction($field)}(rs("$field.name"))
+    tmp = rs("$field.name")
+    $field.name = ${utils.convertionFunction($field)}(IIf(IsNull(tmp), $field.defVal, tmp))
 #end
 #end
 End Sub
