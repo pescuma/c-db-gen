@@ -487,7 +487,7 @@ namespace sqlite {
 		if (txt == NULL)
 		{
 			checkError();
-			lstrcpyn(ret, "", size);
+			lstrcpyn(ret, _T(""), size);
 			return;
 		}
 
@@ -534,15 +534,15 @@ namespace sqlite {
 		}
 
 		int blobSize = sqlite3_column_bytes(stmt, column);
-		if (blobSize == 0)
+		if (blobSize <= 0)
 		{
 			checkError();
 			memset(ret, 0, size);
 			return;
 		}
 		
-		memcpy(ret, blob, min(size, blobSize));
-		if (size > blobSize)
+		memcpy(ret, blob, min(size, (size_t) blobSize));
+		if (size > (size_t) blobSize)
 			memset(&((char *)ret)[blobSize], 0, size - blobSize);
 	}
 
@@ -586,7 +586,7 @@ namespace sqlite {
 		valid = db->isAutoCommitEnabled();
 		
 		if (valid)
-			db->execute("BEGIN TRANSACTION");
+			db->execute(_T("BEGIN TRANSACTION"));
 	}
 
 
@@ -602,7 +602,7 @@ namespace sqlite {
 		finished = true;
 
 		if (valid)
-			db->execute("COMMIT");
+			db->execute(_T("COMMIT"));
 	}
 
 
@@ -611,7 +611,7 @@ namespace sqlite {
 		finished = true;
 
 		if (valid)
-			db->execute("ROLLBACK");
+			db->execute(_T("ROLLBACK"));
 	}
 
 
